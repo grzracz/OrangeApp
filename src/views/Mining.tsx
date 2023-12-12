@@ -156,9 +156,7 @@ function Mining() {
             lastBlock !== assetData.block &&
             assetData.lastMiner === activeAccount.address
         ) {
-            toast.success(`You mined ${formatAmount(assetData?.minerReward)} ORA! It will be in your wallet soon.`, {
-                duration: 30000,
-            });
+            toast.success(`You mined ${formatAmount(assetData?.minerReward)} ORA! It will be in your wallet soon.`);
             setMined((mined) => mined + (assetData?.minerReward || 0));
             playBling();
         }
@@ -362,7 +360,7 @@ function Mining() {
     useEffect(() => {
         if (mining && cost > minerBalance) {
             setMining(false);
-            toast.error('No more funds. Please fund your miner!', { duration: Infinity });
+            toast.error('No more funds. Please fund your miner 🥺', { duration: Infinity });
         }
     }, [cost, minerBalance, mining]);
 
@@ -374,7 +372,7 @@ function Mining() {
                         src={orange_icon}
                         className={classNames('w-24 md:w-32 lg:w-48 h-full', mining && 'animate-bounce')}
                     />
-                    <div className="flex items-start gap-6 bg-orange-100 p-4 rounded-lg shadow-lg">
+                    <div className="flex flex-col md:flex-row justify-center items-center gap-6 bg-orange-100 p-4 rounded-lg shadow-lg">
                         <div className="flex flex-col items-center justify-center">
                             <span className="font-bold heading text-2xl">{formatAmount(4000000000000)}</span>
                             <span className="text-sm opacity-80">Total ORA supply</span>
@@ -407,11 +405,15 @@ function Mining() {
                     </div>
                 </div>
                 {address ? (
-                    <div className="flex gap-4 items-start">
+                    <div className="flex flex-col md:flex-row gap-4 items-center justify-center md:items-start">
                         <div className="space-y-2">
-                            <div className="flex flex-col items-center gap-2 bg-orange-500 bg-opacity-80 p-6 rounded-lg shadow-lg">
+                            <div className="flex flex-col  items-center gap-2 bg-orange-500 bg-opacity-80 p-6 rounded-lg shadow-lg">
                                 <div className="font-bold">Your miner:</div>
-                                <QRCode value={address} size={140} className="border-4 border-white" />
+                                <QRCode
+                                    value={address}
+                                    size={140}
+                                    className="border-4 hidden md:visible border-white"
+                                />
                                 <AccountName account={address} />
                                 <div className="flex flex-col items-center">
                                     <label className="block text-xs font-medium">Miner balance</label>
@@ -426,13 +428,13 @@ function Mining() {
                         </div>
                         {activeAccount ? (
                             <div className="flex flex-col items-center gap-2 bg-orange-500 bg-opacity-80 p-8 rounded-lg shadow-lg">
-                                <div className="pb-4">
-                                    {!mining && (
+                                {!mining && (
+                                    <div className="pb-4">
                                         <Button onClick={() => providers?.forEach((p) => p.disconnect())}>
                                             Disconnect
                                         </Button>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                                 <div className="font-bold">Deposits to:</div>
                                 <AccountName account={activeAccount.address} />
                                 {(!accountData.appOptedIn || !accountData.assetOptedIn) && (
@@ -475,8 +477,8 @@ function Mining() {
                                     <Slider
                                         name="Fee per transaction"
                                         min={2000}
-                                        max={100000}
-                                        step={1000}
+                                        max={20000}
+                                        step={500}
                                         value={fpt}
                                         ticker="ALGO"
                                         decimals={6}
@@ -544,7 +546,7 @@ function Mining() {
                         </div>
                     </div>
                 )}
-                <div className="flex items-start gap-6 bg-orange-100 p-4 rounded-lg shadow-lg">
+                <div className="flex items-center justify-center flex-col md:flex-row gap-6 bg-orange-100 p-4 rounded-lg shadow-lg">
                     <div className="flex flex-col items-center justify-center">
                         <span className="font-bold heading text-2xl">
                             {formatAmount(assetData?.halvingSupply || 0)}{' '}
@@ -569,7 +571,7 @@ function Mining() {
                         <span className="text-sm opacity-80">Rounds to halving</span>
                     </div>
                 </div>
-                <div className="flex flex-col w-full justify-center items-center flex-wrap gap-4">
+                <div className="flex flex-col w-full justify-center items-center flex-wrap gap-4 p-2">
                     <span className="font-bold heading text-2xl">How to mine?</span>
                     <div className="flex items-start gap-4 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg">
                         <ul>

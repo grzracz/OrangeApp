@@ -33,7 +33,7 @@ function App() {
                     <Route path="mining" Component={Mining} />
                 </Routes>
             </HashRouter>
-            <span className="p-2 absolute bottom-0 left-0 text-sm opacity-20">Powered by Nodely.io</span>
+            <span className="p-2 lg:absolute bottom-0 left-0 text-sm opacity-20">Powered by Nodely.io</span>
         </WalletProvider>
     );
 }
