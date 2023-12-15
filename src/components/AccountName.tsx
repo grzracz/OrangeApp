@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { classNames } from '../utils';
+import axios from 'axios';
 
 interface AccountNameProps {
     account?: string;
@@ -7,8 +8,24 @@ interface AccountNameProps {
 
 const AccountName: React.FC<AccountNameProps> = ({ account }) => {
     const [copied, setCopied] = useState(false);
+    const [nfd, setNfd] = useState('');
 
     const address = account || '';
+
+    const checkNFD = async (acc: string) => {
+        try {
+            const response = await axios.get(`https://api.nf.domains/nfd/lookup?address=${acc}`);
+            setNfd(response.data[acc].name || '');
+        } catch {
+            setNfd('');
+        }
+    };
+
+    useEffect(() => {
+        if (account) {
+            checkNFD(account);
+        }
+    }, [account]);
 
     const copy = () => {
         setCopied(true);
@@ -25,13 +42,19 @@ const AccountName: React.FC<AccountNameProps> = ({ account }) => {
                 )}
                 onClick={copy}
             >
-                <b>{address.slice(0, 4)}</b>
-                <span className="opacity-80">{address.slice(4, 6)}</span>
-                <span className="opacity-50">
-                    {address.slice(6, 8)}⋯{address.slice(50, 52)}
-                </span>
-                <span className="opacity-80">{address.slice(52, 54)}</span>
-                <b>{address.slice(54)}</b>
+                {nfd ? (
+                    <span className="text-base font-bold break-word max-w-sm">{nfd}</span>
+                ) : (
+                    <>
+                        <b>{address.slice(0, 4)}</b>
+                        <span className="opacity-80">{address.slice(4, 6)}</span>
+                        <span className="opacity-50">
+                            {address.slice(6, 8)}⋯{address.slice(50, 52)}
+                        </span>
+                        <span className="opacity-80">{address.slice(52, 54)}</span>
+                        <b>{address.slice(54)}</b>
+                    </>
+                )}
             </div>
             <span
                 className={classNames(

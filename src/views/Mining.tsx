@@ -15,12 +15,13 @@ import AccountName from '../components/AccountName';
 import QRCode from 'react-qr-code';
 import { useWallet } from '@txnlab/use-wallet';
 import Slider from 'components/Slider';
-import { APP_INDEX, ASSET_INDEX, INDEXER_URL, NODE_PORT, NODE_URL } from 'consts';
 import abi from '../abi/OrangeCoin.arc4.json';
 import { classNames, formatAmount } from 'utils';
 import orange_icon from '../assets/orange.svg';
 import useSound from 'use-sound';
 import bling from '../assets/bling.wav';
+import Timer from 'components/Timer';
+import dayjs from 'dayjs';
 
 type AccountData = {
     assetBalance: number;
@@ -31,6 +32,7 @@ type AccountData = {
 
 type AssetData = {
     block: number;
+    startTimestamp: number;
     totalEffort: number;
     totalTransactions: number;
     halving: number;
@@ -42,16 +44,27 @@ type AssetData = {
 
 let txIndex = 0;
 
-function Mining() {
-    const client = new algosdk.Algodv2('', NODE_URL, NODE_PORT);
+type MiningProps = {
+    nodeUrl: string;
+    nodePort: number;
+    indexerUrl: string;
+    indexerPort: number;
+    applicationId: number;
+    assetId: number;
+    isMainnet?: boolean;
+};
+
+function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, assetId, isMainnet }: MiningProps) {
+    const client = new algosdk.Algodv2('', nodeUrl, nodePort);
     const [playBling] = useSound(bling);
     const account = useMemo(() => algosdk.generateAccount(), []);
     const [address, setAddress] = useState('');
-    const [passwordSet, setPasswordSet] = useState(false);
+    const [passwordSet, setPasswordSet] = useState<boolean>();
     const [inputPassword, setInputPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [minerBalance, setMinerBalance] = useState(0);
     const [mined, setMined] = useState(0);
+    const [diff, setDiff] = useState(0);
 
     const [lastBlock, setLastBlock] = useState(0);
 
@@ -82,8 +95,8 @@ function Mining() {
 
     const updateAccountData = async (address: string) => {
         const data = await client.accountInformation(address).do();
-        const asset = data.assets.find((a: any) => a['asset-id'] === ASSET_INDEX);
-        const app = data['apps-local-state'].find((a: any) => a['id'] === APP_INDEX);
+        const asset = data.assets.find((a: any) => a['asset-id'] === assetId);
+        const app = data['apps-local-state'].find((a: any) => a['id'] === applicationId);
         const kv = app ? app['key-value'].find((kv: any) => kv.key === 'ZWZmb3J0') : undefined;
         setAccountData({
             assetOptedIn: !!asset,
@@ -113,30 +126,33 @@ function Mining() {
     };
 
     const updateAverageCost = async (minerReward: number) => {
-        const indexer = new algosdk.Indexer('', INDEXER_URL, 443);
+        const indexer = new algosdk.Indexer('', indexerUrl, indexerPort);
         const txs = await indexer
             .searchForTransactions()
-            .address(algosdk.getApplicationAddress(APP_INDEX))
+            .address(algosdk.getApplicationAddress(applicationId))
             .addressRole('sender')
             .limit(100)
             .do();
         const costs: number[] = [];
         txs['transactions'].forEach((tx: any) => {
-            // @ts-ignore
-            const cost = Uint8Array.from(Buffer.from(tx['logs'][0], 'base64')).slice(32);
-            costs.push(algosdk.decodeUint64(cost, 'safe'));
+            try {
+                // @ts-ignore
+                const cost = Uint8Array.from(Buffer.from(tx['logs'][0], 'base64')).slice(32);
+                costs.push(algosdk.decodeUint64(cost, 'safe'));
+            } catch {}
         });
         const average = costs.reduce((a, b) => a + b, 0) / costs.length;
         setAverageCost(average / (minerReward || 1));
     };
 
     const updateAssetData = async () => {
-        const data = await client.getApplicationByID(APP_INDEX).do();
+        const data = await client.getApplicationByID(applicationId).do();
         const state = data['params']['global-state'];
         const minerReward = keyToValue(state, 'miner_reward');
         updateAverageCost(minerReward / Math.pow(10, 6));
         setAssetData({
             block: keyToValue(state, 'block'),
+            startTimestamp: keyToValue(state, 'start_timestamp'),
             totalEffort: keyToValue(state, 'total_effort'),
             totalTransactions: keyToValue(state, 'total_transactions'),
             halving: keyToValue(state, 'halving'),
@@ -156,12 +172,17 @@ function Mining() {
             lastBlock !== assetData.block &&
             assetData.lastMiner === activeAccount.address
         ) {
-            toast.success(`You mined ${formatAmount(assetData?.minerReward)} ORA! It will be in your wallet soon.`);
+            toast.success(`Sending ${formatAmount(assetData?.minerReward)} ORA to your main wallet!`);
             setMined((mined) => mined + (assetData?.minerReward || 0));
             playBling();
         }
         setLastBlock(assetData?.block || 0);
     }, [assetData]);
+
+    useEffect(() => {
+        const interval = setInterval(() => setDiff(dayjs().diff(dayjs.unix(assetData?.startTimestamp || 0))), 33);
+        return () => clearInterval(interval);
+    }, [assetData?.startTimestamp]);
 
     useEffect(() => {
         checkPasswordSet();
@@ -229,7 +250,7 @@ function Mining() {
         return quiet
             ? promise
             : toast.promise(promise, {
-                  loading: 'Executing miner transactions...',
+                  loading: 'Executing juicer transactions...',
                   success: 'Transactions sent!',
                   error: (e) => e?.toString(),
               });
@@ -268,7 +289,7 @@ function Mining() {
                 txns.push(
                     algosdk.makeApplicationOptInTxnFromObject({
                         from: activeAccount?.address || '',
-                        appIndex: APP_INDEX,
+                        appIndex: applicationId,
                         suggestedParams,
                     }),
                 );
@@ -278,7 +299,7 @@ function Mining() {
                     algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
                         from: activeAccount?.address || '',
                         to: activeAccount?.address || '',
-                        assetIndex: ASSET_INDEX,
+                        assetIndex: assetId,
                         amount: 0,
                         suggestedParams,
                     }),
@@ -326,11 +347,11 @@ function Mining() {
                 setPendingTxs((txs) => txs + 1);
                 txIndex += 1;
                 atc.addMethodCall({
-                    appID: APP_INDEX,
+                    appID: applicationId,
                     method,
                     methodArgs: [algosdk.decodeAddress(dAddress).publicKey],
                     appAccounts: [lAddress, dAddress],
-                    appForeignAssets: [ASSET_INDEX],
+                    appForeignAssets: [assetId],
                     sender: mAddress,
                     signer: minerSigner,
                     note: Uint8Array.from([txIndex]),
@@ -360,17 +381,25 @@ function Mining() {
     useEffect(() => {
         if (mining && cost > minerBalance) {
             setMining(false);
-            toast.error('No more funds. Please fund your miner 🥺', { duration: Infinity });
+            toast.error('No more funds. Please fund your juicer 🥺', { duration: Infinity });
         }
     }, [cost, minerBalance, mining]);
 
     return (
         <>
+            <div
+                className={classNames(
+                    'fixed top-0 w-full  text-sm px-2 py-1 font-mono text-center text-orange-800',
+                    isMainnet ? 'bg-yellow-400' : 'bg-red-400',
+                )}
+            >
+                You are currently on {isMainnet ? 'MainNet. Be careful while making transactions!' : 'TestNet.'}
+            </div>
             <div className="flex w-full justify-center items-center py-4 relative flex-col space-y-8">
                 <div className="flex flex-col w-full justify-center items-center flex-wrap gap-4">
                     <img
                         src={orange_icon}
-                        className={classNames('w-24 md:w-32 lg:w-48 h-full', mining && 'animate-bounce')}
+                        className={classNames('w-24 md:w-32 lg:w-48 h-full z-20', mining && 'animate-bounce')}
                     />
                     <div className="flex flex-col md:flex-row justify-center items-center gap-6 bg-orange-100 p-4 rounded-lg shadow-lg">
                         <div className="flex flex-col items-center justify-center">
@@ -384,7 +413,7 @@ function Mining() {
                                     {formatAmount((assetData?.minedSupply || 0) / 40000000000, 0)}%
                                 </span>
                             </span>
-                            <span className="text-sm opacity-80">Mined ORA supply</span>
+                            <span className="text-sm opacity-80">Juiced ORA supply</span>
                         </div>
                         <div className="flex flex-col items-center justify-center">
                             <span className="font-bold heading text-2xl">{formatAmount(averageCost)} ALGO</span>
@@ -400,23 +429,20 @@ function Mining() {
                             <span className="font-bold heading text-2xl">
                                 {formatAmount(assetData?.totalTransactions || 0, 0)}
                             </span>
-                            <span className="text-sm opacity-80">Mining transactions</span>
+                            <span className="text-sm opacity-80">Juicing transactions</span>
                         </div>
                     </div>
                 </div>
+                {diff < 0 && <Timer diff={diff} />}
                 {address ? (
                     <div className="flex flex-col md:flex-row gap-4 items-center justify-center md:items-start">
                         <div className="space-y-2">
                             <div className="flex flex-col  items-center gap-2 bg-orange-500 bg-opacity-80 p-6 rounded-lg shadow-lg">
-                                <div className="font-bold">Your miner:</div>
-                                <QRCode
-                                    value={address}
-                                    size={140}
-                                    className="border-4 hidden md:visible border-white"
-                                />
+                                <div className="font-bold">Your juicer:</div>
+                                <QRCode value={address} size={140} className="border-4 hidden md:block border-white" />
                                 <AccountName account={address} />
                                 <div className="flex flex-col items-center">
-                                    <label className="block text-xs font-medium">Miner balance</label>
+                                    <label className="block text-xs font-medium">Juicer balance</label>
                                     <span className="font-bold heading">{formatAmount(minerBalance)} ALGO</span>
                                 </div>
                                 {!mining && (
@@ -458,7 +484,7 @@ function Mining() {
                                     </Button>
                                 ))}
                                 <span className="text-xs opacity-80 py-2">
-                                    Connect your main wallet to start mining!
+                                    Connect your main wallet to start juicing!
                                 </span>
                             </div>
                         )}
@@ -506,18 +532,23 @@ function Mining() {
                             )}
                             {mining && (
                                 <span className="text-orange-900 text-xs text-bold animate-pulse">
-                                    Mining in progress...
+                                    Juicing in progress...
                                 </span>
                             )}
                             <Button
                                 onClick={() => setMining(!mining)}
-                                disabled={!accountData.appOptedIn || !accountData.assetOptedIn || minerBalance < cost}
+                                disabled={
+                                    !accountData.appOptedIn ||
+                                    !accountData.assetOptedIn ||
+                                    minerBalance < cost ||
+                                    diff < 0
+                                }
                             >
-                                {mining ? 'Stop' : 'Start'} mining
+                                {mining ? 'Stop' : 'Start'} juicing
                             </Button>
                         </div>
                     </div>
-                ) : (
+                ) : passwordSet !== undefined ? (
                     <div className="max-w-sm flex flex-col md:max-w-md mx-4 lg:max-w-lg xl:max-w-xl space-y-4 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg border border-black">
                         <Input
                             value={inputPassword}
@@ -533,8 +564,10 @@ function Mining() {
                                 type="password"
                             />
                         )}
-                        <Button onClick={signIn}>{passwordSet ? 'Unlock miner' : 'Set miner password'}</Button>
+                        <Button onClick={signIn}>{passwordSet ? 'Unlock juicer' : 'Set juicer password'}</Button>
                     </div>
+                ) : (
+                    <></>
                 )}
                 {pendingTxs > 0 && (
                     <div className="flex flex-col w-full justify-center items-center flex-wrap gap-4">
@@ -561,8 +594,10 @@ function Mining() {
                         <span className="text-sm opacity-80">Halving ORA supply</span>
                     </div>
                     <div className="flex flex-col items-center justify-center">
-                        <span className="font-bold heading text-2xl">{formatAmount(assetData?.minerReward || 0)}</span>
-                        <span className="text-sm opacity-80">ORA miner reward</span>
+                        <span className="font-bold heading text-2xl">
+                            {formatAmount(assetData?.minerReward || 0)} ORA
+                        </span>
+                        <span className="text-sm opacity-80">Juicer reward</span>
                     </div>
                     <div className="flex flex-col items-center justify-center">
                         <span className="font-bold heading text-2xl">
@@ -572,20 +607,20 @@ function Mining() {
                     </div>
                 </div>
                 <div className="flex flex-col w-full justify-center items-center flex-wrap gap-4 p-2">
-                    <span className="font-bold heading text-2xl">How to mine?</span>
+                    <span className="font-bold heading text-2xl">How to juice?</span>
                     <div className="flex items-start gap-4 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg">
                         <ul>
                             <li>
                                 <b>One.</b> Connect & opt in with your main wallet.
                             </li>
                             <li>
-                                <b>Two.</b> Deposit funds to your miner.
+                                <b>Two.</b> Deposit funds to your juicer.
                             </li>
                             <li>
-                                <b>Three.</b> Update mining settings.
+                                <b>Three.</b> Update juicing settings.
                             </li>
                             <li>
-                                <b>Four.</b> Start mining!
+                                <b>Four.</b> Start juicing!
                             </li>
                         </ul>
                     </div>

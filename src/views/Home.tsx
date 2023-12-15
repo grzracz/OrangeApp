@@ -33,11 +33,19 @@ function Home() {
                     </div>
                 </header>
                 <img src={orange} className="w-32 md:w-48 lg:w-64 h-full shadow rounded-lg" />
-                <Link to="mining" className="py-6">
-                    <Button>
-                        Start mining <b className="opacity-60">ORA</b>!
-                    </Button>
-                </Link>
+                <div className="flex flex-col gap-2 justify-center items-center">
+                    <h2 className="heading text-2xl">
+                        Start juicing <b className="opacity-60">ORA</b>!
+                    </h2>
+                    <div className="space-x-3">
+                        <Link to="testnet" className="py-6">
+                            <Button secondary>TestNet</Button>
+                        </Link>
+                        <Link to="mainnet" className="py-6">
+                            <Button>MainNet</Button>
+                        </Link>
+                    </div>
+                </div>
                 <div className="max-w-sm md:max-w-md mx-4 lg:max-w-lg xl:max-w-xl space-y-4 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg">
                     <div className="indent-8">
                         <b>Orange</b>{' '}
@@ -53,18 +61,18 @@ function Home() {
                     </div>
                     <div className="indent-8">
                         The mining mechanism of <b className="opacity-60">ORA</b> is based on transaction fees: whenever
-                        any account submits a "mine" application transaction, the fee paid to the Algorand protocol is
-                        saved in the contract. The miner with the total highest amount of fees paid in total that has
-                        submittted a "mine" transaction within a given period is rewarded & coins are sent automatically
-                        after the next period of mining, while his (and only his) total amount of fees paid is reset to
-                        zero.
+                        any account submits a "mine" (juice) application transaction, the fee paid to the Algorand
+                        protocol is saved in the contract. The miner with the total highest amount of fees paid in total
+                        that has submittted a "mine" transaction within a given period is rewarded & coins are sent
+                        automatically after the next period of juicing, while his (and only his) total amount of fees
+                        paid is reset to zero.
                     </div>
                     <div className="indent-8">
                         This means that <b className="opacity-60">ORA</b> functions both as a store of value & as a way
                         to reward users increasing the Algorand network throughput.
                     </div>
                 </div>
-                <div className="pt-16 opacity-50 text-xs">There is nothing here, go mine</div>
+                <div className="pt-16 opacity-50 text-xs">There is nothing here, go juice</div>
             </div>
         </>
     );
