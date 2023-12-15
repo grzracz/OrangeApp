@@ -12,10 +12,9 @@ export default defineConfig({
             protocolImports: true,
         }),
     ],
-
     root: './',
     build: {
         outDir: 'dist',
     },
-    publicDir: 'src/public',
+    publicDir: 'public',
 });
