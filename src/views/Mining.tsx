@@ -132,7 +132,6 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
             .searchForTransactions()
             .address(algosdk.getApplicationAddress(applicationId))
             .addressRole('sender')
-            .limit(15)
             .do();
         const costs: number[] = [];
         const miners: Record<string, [number, number]> = {};
@@ -156,10 +155,6 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                 }
             } catch {}
         });
-        console.log(
-            costs.reduce((a, b) => a + b, 0),
-            assetData?.totalEffort,
-        );
         const average = costs.reduce((a, b) => a + b, 0) / costs.length;
         setAverageCost(average / (minerReward || 1));
         setMinerStats(miners);
