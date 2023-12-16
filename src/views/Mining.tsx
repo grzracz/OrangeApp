@@ -76,6 +76,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
 
     const [mining, setMining] = useState(false);
     const [averageCost, setAverageCost] = useState(0);
+    const [minerStats, setMinerStats] = useState<Record<string, number[]>>({});
 
     const { activeAccount, providers, signTransactions } = useWallet();
     const [pendingTxs, setPendingTxs] = useState(0);
@@ -131,18 +132,37 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
             .searchForTransactions()
             .address(algosdk.getApplicationAddress(applicationId))
             .addressRole('sender')
-            .limit(100)
+            .limit(15)
             .do();
         const costs: number[] = [];
+        const miners: Record<string, [number, number]> = {};
         txs['transactions'].forEach((tx: any) => {
             try {
-                // @ts-ignore
-                const cost = Uint8Array.from(Buffer.from(tx['logs'][0], 'base64')).slice(32);
-                costs.push(algosdk.decodeUint64(cost, 'safe'));
+                const address = algosdk.encodeAddress(
+                    // @ts-ignore
+                    Uint8Array.from(Buffer.from(tx['logs'][0], 'base64')).slice(0, 32),
+                );
+                if (address !== 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ') {
+                    const cost = algosdk.decodeUint64(
+                        // @ts-ignore
+                        Uint8Array.from(Buffer.from(tx['logs'][0], 'base64')).slice(32),
+                        'safe',
+                    );
+                    if (miners[address]) {
+                        miners[address][0] += 1;
+                        miners[address][1] += cost;
+                    } else miners[address] = [1, cost];
+                    costs.push(cost);
+                }
             } catch {}
         });
+        console.log(
+            costs.reduce((a, b) => a + b, 0),
+            assetData?.totalEffort,
+        );
         const average = costs.reduce((a, b) => a + b, 0) / costs.length;
         setAverageCost(average / (minerReward || 1));
+        setMinerStats(miners);
     };
 
     const updateAssetData = async () => {
@@ -385,15 +405,38 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
         }
     }, [cost, minerBalance, mining]);
 
+    const minerList = useMemo(() => {
+        const addresses = Object.keys(minerStats);
+        addresses.sort((a, b) => minerStats[b][0] - minerStats[a][0]);
+        return addresses.map((a) => [a, minerStats[a][0], minerStats[a][1]]);
+    }, [minerStats]);
+
     return (
-        <>
+        <div className="pb-16">
             <div
                 className={classNames(
-                    'fixed top-0 w-full  text-sm px-2 py-1 font-mono text-center text-orange-800',
+                    'fixed top-0 w-full z-10 text-sm px-2 py-1 font-mono text-center text-orange-800',
                     isMainnet ? 'bg-yellow-400' : 'bg-red-400',
                 )}
             >
-                You are currently on {isMainnet ? 'MainNet. Be careful while making transactions!' : 'TestNet.'}
+                You are currently on {isMainnet ? 'MainNet. Be careful while making transactions!' : 'TestNet.'}{' '}
+                Application{' '}
+                <a
+                    className="underline"
+                    target="_blank"
+                    href={`https://${isMainnet ? '' : 'testnet.'}algoexplorer.io/application/${applicationId}`}
+                >
+                    {applicationId}
+                </a>{' '}
+                & asset{' '}
+                <a
+                    className="underline"
+                    target="_blank"
+                    href={`https://${isMainnet ? '' : 'testnet.'}algoexplorer.io/asset/${assetId}`}
+                >
+                    {assetId}
+                </a>
+                .
             </div>
             <div className="flex w-full justify-center items-center py-4 relative flex-col space-y-8">
                 <div className="flex flex-col w-full justify-center items-center flex-wrap gap-4">
@@ -625,8 +668,47 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                         </ul>
                     </div>
                 </div>
+                <div className="flex flex-col justify-center text-center items-center flex-wrap gap-4 bg-orange-100 p-4 rounded-lg shadow-lg">
+                    <div className="flex flex-col items-center justify-center">
+                        <span className="font-bold heading text-2xl">Top recent juicers</span>
+                        <span className="font-bold opacity-60 text-sm">Last 1000 rewards</span>
+                    </div>
+                    {minerList.length > 0 ? (
+                        <div className="grid grid-cols-10">
+                            <b className="col-span-1"></b>
+                            <b className="col-span-3">Address</b>
+                            <b className="col-span-2">ORA juiced</b>
+                            <b className="col-span-2">ALGO spent</b>
+                            <b className="col-span-2">ALGO per ORA</b>
+                            {minerList.map(([address, amount, cost], i) => (
+                                <>
+                                    <span className="font-bold text-lg col-span-1 flex justify-center items-center">
+                                        {i + 1}.
+                                    </span>
+                                    <div className="col-span-3 p-2">
+                                        <AccountName account={address as string} />
+                                    </div>
+                                    <div className="flex items-center justify-center col-span-2">
+                                        {formatAmount((amount as number) * (assetData?.minerReward || 0))}
+                                    </div>
+                                    <div className="flex items-center justify-center col-span-2">
+                                        {formatAmount(cost as number)}
+                                    </div>
+                                    <div className="flex items-center justify-center col-span-2">
+                                        {formatAmount(
+                                            (cost as number) / ((amount as number) * (assetData?.minerReward || 0)),
+                                            0,
+                                        )}
+                                    </div>
+                                </>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="opacity-50">Juicers are preparing! Come back soon.</div>
+                    )}
+                </div>
             </div>
-        </>
+        </div>
     );
 }
 
