@@ -43,6 +43,9 @@ type AssetData = {
 };
 
 let txIndex = 0;
+let transactionsToSend = 0;
+let miningMinute = 0;
+let miningSecond = 0;
 
 type MiningProps = {
     nodeUrl: string;
@@ -71,7 +74,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
     const [accountData, setAccountData] = useState<AccountData>({ assetBalance: 0, effort: 0 });
     const [assetData, setAssetData] = useState<AssetData>();
 
-    const [tps, setTps] = useState(1);
+    const [tpm, setTpm] = useState(60);
     const [fpt, setFpt] = useState(2000);
 
     const [mining, setMining] = useState(false);
@@ -334,26 +337,40 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
             algosdk.makePaymentTxnWithSuggestedParamsFromObject({
                 from: address,
                 to: activeAccount?.address || address,
-                amount: minerBalance - 1000,
+                amount: 0,
+                closeRemainderTo: activeAccount?.address || address,
                 suggestedParams: await client.getTransactionParams().do(),
             }),
         ]).then(() => updateMinerData(address));
     };
 
-    const cost = tps * fpt;
+    const cost = Math.floor((tpm / 60) * fpt);
 
     const minerSigner = async (group: algosdk.Transaction[]): Promise<Uint8Array[]> => {
         const blobs = await signMinerTransactions(group);
         return blobs.map((b) => b.blob);
     };
 
-    const mine = async (tps: number, fpt: number, dAddress: string, mAddress: string, lAddress: string) => {
+    const mine = async (tpm: number, fpt: number, dAddress: string, mAddress: string, lAddress: string) => {
         const suggestedParams = await client.getTransactionParams().do();
         const contract = new algosdk.ABIContract(abi);
         const method = contract.getMethodByName('mine');
         suggestedParams.flatFee = true;
         suggestedParams.fee = fpt;
-        let amount = tps;
+        let currentMinute = dayjs().unix();
+        currentMinute = currentMinute - (currentMinute % 60);
+        if (miningMinute !== currentMinute) {
+            transactionsToSend = tpm;
+            miningMinute = currentMinute;
+            miningSecond = 1;
+        }
+        let amount = 0;
+        const interval = tpm < 60 ? Math.floor(60 / tpm) : 1;
+        if (miningSecond % interval === 0) {
+            amount = Math.min(transactionsToSend, Math.ceil(tpm / (60 / interval)));
+        }
+        transactionsToSend -= amount;
+        miningSecond += 1;
         while (amount > 0) {
             const groupSize = amount > 16 ? 16 : amount;
             amount -= groupSize;
@@ -385,10 +402,13 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
     useEffect(() => {
         let interval = 0;
         if (mining && activeAccount && assetData && assetData.lastMiner) {
-            interval = setInterval(() => mine(tps, fpt, activeAccount.address, address, assetData.lastMiner), 1000);
+            interval = setInterval(() => mine(tpm, fpt, activeAccount.address, address, assetData.lastMiner), 1000);
         }
         if (!mining) {
             setMined(0);
+            transactionsToSend = 0;
+            miningMinute = 0;
+            miningSecond = 0;
         }
         return () => clearInterval(interval);
     }, [mining, assetData?.lastMiner]);
@@ -405,6 +425,10 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
         addresses.sort((a, b) => minerStats[b][0] - minerStats[a][0]);
         return addresses.map((a) => [a, minerStats[a][0], minerStats[a][1]]);
     }, [minerStats]);
+
+    const miningSecondsLeft = minerBalance / cost;
+    const miningHours = Math.floor(miningSecondsLeft / 3600);
+    const miningMinutes = Math.floor((miningSecondsLeft % 3600) / 60);
 
     return (
         <div className="pb-16">
@@ -530,12 +554,12 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                             {!mining && (
                                 <>
                                     <Slider
-                                        name="Transactions per second"
-                                        min={1}
-                                        max={128}
-                                        value={tps}
-                                        ticker="TPS"
-                                        onChange={setTps}
+                                        name="Transactions per minute"
+                                        min={6}
+                                        max={7680}
+                                        value={tpm}
+                                        ticker={`TPM (${formatAmount(tpm / 60, 0)} TPS)`}
+                                        onChange={setTpm}
                                         step={1}
                                     />
                                     <Slider
@@ -551,8 +575,15 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                                 </>
                             )}
                             <div className="flex flex-col items-center">
-                                <label className="block text-xs font-medium">Cost per second</label>
-                                <span className="font-bold heading">{formatAmount(cost)} ALGO</span>
+                                <label className="block text-xs font-medium">Cost per minute</label>
+                                <span className="font-bold heading">{formatAmount(cost * 60)} ALGO</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <label className="block text-xs font-medium">Juicing time left</label>
+                                <span className="font-bold heading">
+                                    {miningHours} {miningHours === 1 ? 'hour' : 'hours'}, {miningMinutes}{' '}
+                                    {miningMinutes === 1 ? 'minute' : 'minutes'}
+                                </span>
                             </div>
                             {mining && (
                                 <>
