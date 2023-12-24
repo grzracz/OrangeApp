@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import {
@@ -83,6 +83,9 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
 
     const { activeAccount, providers, signTransactions } = useWallet();
     const [pendingTxs, setPendingTxs] = useState(0);
+
+    const [juicers, setJuicers] = useState({});
+    const chart = useRef();
 
     const checkPasswordSet = async () => {
         setPasswordSet(await isPasswordSet());
@@ -180,6 +183,72 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
             lastMiner: keyToAddress(state, 'last_miner'),
         });
     };
+
+    // TODO: Figure out how to parse the local state deltas here
+    function processTxns(txns: any) {
+        let efforts: Record<string, any> = {};
+        for (const txn of txns) {
+            if (txn.txn.apid !== applicationId) continue;
+            if (txn.txn.apan) continue;
+            console.log('txn:', txn);
+            // console.log('inner arcv: ', algosdk.encodeAddress(txn.dt.itx[0].txn.arcv));
+
+            if ('dt' in txn && 'itx' in txn.dt) {
+                console.log('ITXN START');
+                processTxns(txn.dt.itx);
+                console.log('ITXN END');
+            }
+            // console.log('deltas: ', Object.keys(txn.dt.ld).length);
+            const addr = algosdk.encodeAddress(txn.txn.snd);
+            console.log(addr);
+            console.log(txn.dt.ld);
+
+            for (const e in txn.dt.ld) {
+                const effort = txn.dt.ld[e].effort.ui;
+                efforts[addr] = effort;
+            }
+        }
+        console.log(efforts);
+
+        const juicers = Object.entries(efforts).sort((a, b) => b[1] - a[1]);
+        console.log(juicers);
+
+        setJuicers(juicers);
+    }
+
+    useEffect(() => {
+        const processBlock = async () => {
+            const block = (await client.block(lastBlock).do()).block;
+            // console.log('block:', block.rnd);
+            processTxns(block.txns);
+        };
+        processBlock().catch(console.error);
+    }, [lastBlock]);
+
+    // This is not working but will become the graph of the current juicer efforts
+    // useEffect(() => {
+    //     if(Object.entries(juicers).length === 0) return
+
+    //     const graph = plot({
+    //         title: 'Current Juicer Efforts',
+    //         marginBottom: 160,
+    //         x: { label: null, tickRotate: 90 },
+    //         y: { label: 'Current Effort', grid: true },
+    //         marks: [
+    //             barY(juicers, {
+    //                 x: 'account',
+    //                 y: 'effort',
+    //                 sort: { x: 'y', reverse: true },
+    //                 fill: 'orange',
+    //                 rx: 8,
+    //                 ry: 8,
+    //             }),
+    //         ],
+    //     });
+
+    //     chart?.current.append(graph)
+    //     ()=>graph.remove()
+    // },[juicers])
 
     useEffect(() => {
         if (
@@ -458,6 +527,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                 .
             </div>
             <div className="flex w-full justify-center items-center py-4 relative flex-col space-y-8">
+                {/* <div ref={chart}></div> */}
                 <div className="flex flex-col w-full justify-center items-center flex-wrap gap-4">
                     <img
                         src={orange_icon}
