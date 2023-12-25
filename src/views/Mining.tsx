@@ -22,6 +22,8 @@ import useSound from 'use-sound';
 import bling from '../assets/bling.wav';
 import Timer from 'components/Timer';
 import dayjs from 'dayjs';
+import { barX, barY, plot, text } from '@observablehq/plot';
+import axios from 'axios';
 
 type AccountData = {
     assetBalance: number;
@@ -84,8 +86,8 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
     const { activeAccount, providers, signTransactions } = useWallet();
     const [pendingTxs, setPendingTxs] = useState(0);
 
-    const [juicers, setJuicers] = useState({});
-    const chart = useRef();
+    const [juicers, setJuicers] = useState<Juicer[]>([]);
+    const chartRef = useRef(null);
 
     const checkPasswordSet = async () => {
         setPasswordSet(await isPasswordSet());
@@ -184,71 +186,112 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
         });
     };
 
-    // TODO: Figure out how to parse the local state deltas here
-    function processTxns(txns: any) {
+    /* 
+    Begin graphing addition
+    */
+    type Juicer = {
+        account: string;
+        effort: number;
+    };
+
+    async function processTxns(txns: any) {
         let efforts: Record<string, any> = {};
+
         for (const txn of txns) {
             if (txn.txn.apid !== applicationId) continue;
             if (txn.txn.apan) continue;
-            console.log('txn:', txn);
-            // console.log('inner arcv: ', algosdk.encodeAddress(txn.dt.itx[0].txn.arcv));
+            // console.group();
+            // console.log('txn:', txn);
 
-            if ('dt' in txn && 'itx' in txn.dt) {
-                console.log('ITXN START');
-                processTxns(txn.dt.itx);
-                console.log('ITXN END');
-            }
-            // console.log('deltas: ', Object.keys(txn.dt.ld).length);
-            const addr = algosdk.encodeAddress(txn.txn.snd);
-            console.log(addr);
-            console.log(txn.dt.ld);
+            const sender = algosdk.encodeAddress(txn.txn.snd);
+            // console.log('tx.snd addr encoded: ', sender);
 
-            for (const e in txn.dt.ld) {
-                const effort = txn.dt.ld[e].effort.ui;
-                efforts[addr] = effort;
+            const acctsArray = txn.txn.apat.map((acc: Uint8Array) => algosdk.encodeAddress(acc));
+            acctsArray.unshift(sender); // Txn.Sender is index 0 in accts array
+            // console.log('txn.apat array encoded: ', acctsArray);
+
+            const localDelta = txn.dt.ld;
+            // console.log('localDelta: ', localDelta);
+
+            for (const key in localDelta) {
+                const addr = acctsArray[key];
+                const effort = localDelta[key].effort.ui;
+                effort && (efforts[addr] = effort);
             }
+            // console.groupEnd();
         }
-        console.log(efforts);
+        // console.log('efforts: ', efforts);
 
-        const juicers = Object.entries(efforts).sort((a, b) => b[1] - a[1]);
-        console.log(juicers);
+        const effortsArray = Object.entries(efforts);
+        // console.log('effortsArray: ', effortsArray);
+
+        const juicers: Juicer[] = await Promise.all(
+            effortsArray.map(async (entry) => {
+                const effortAlgos = entry[1] / 1000000;
+                const acc = entry[0];
+                try {
+                    const nfdResponse = await axios.get(`https://api.nf.domains/nfd/lookup?address=${acc}`);
+                    const addr = nfdResponse.data[acc].name;
+                    return { account: addr, effort: effortAlgos };
+                } catch {
+                    const addr = `${acc.slice(0, 8)}...${acc.slice(-8)}`;
+                    return { account: addr, effort: effortAlgos };
+                }
+            }),
+        );
+
+        console.log('juicers: ', juicers);
 
         setJuicers(juicers);
     }
 
     useEffect(() => {
         const processBlock = async () => {
-            const block = (await client.block(lastBlock).do()).block;
-            // console.log('block:', block.rnd);
-            processTxns(block.txns);
+            const blockResp = await client.block(lastBlock).do();
+            const txns = blockResp.block.txns;
+            if (txns?.length) {
+                await processTxns(blockResp.block.txns);
+            }
         };
         processBlock().catch(console.error);
     }, [lastBlock]);
 
-    // This is not working but will become the graph of the current juicer efforts
-    // useEffect(() => {
-    //     if(Object.entries(juicers).length === 0) return
+    useEffect(() => {
+        if (juicers?.length === 0) return;
 
-    //     const graph = plot({
-    //         title: 'Current Juicer Efforts',
-    //         marginBottom: 160,
-    //         x: { label: null, tickRotate: 90 },
-    //         y: { label: 'Current Effort', grid: true },
-    //         marks: [
-    //             barY(juicers, {
-    //                 x: 'account',
-    //                 y: 'effort',
-    //                 sort: { x: 'y', reverse: true },
-    //                 fill: 'orange',
-    //                 rx: 8,
-    //                 ry: 8,
-    //             }),
-    //         ],
-    //     });
+        const graph = plot({
+            title: 'Active Juicer Efforts',
+            marginLeft: 140,
+            // marginRight: 20,
+            x: { label: null, axis: null },
+            y: { label: null },
+            marks: [
+                barX(juicers, {
+                    y: 'account',
+                    x: 'effort',
+                    sort: { y: 'x', reverse: true },
+                    fill: 'orange',
+                    rx: 8,
+                    ry: 8,
+                }),
 
-    //     chart?.current.append(graph)
-    //     ()=>graph.remove()
-    // },[juicers])
+                text(juicers, {
+                    text: 'effort',
+                    y: 'account',
+                    x: 'effort',
+                    textAnchor: 'end',
+                    dx: -8,
+                }),
+            ],
+        });
+
+        // @ts-ignore
+        chartRef.current.append(graph);
+        return () => graph.remove();
+    }, [juicers]);
+    /* 
+    End graphing addition
+    */
 
     useEffect(() => {
         if (
@@ -527,7 +570,6 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                 .
             </div>
             <div className="flex w-full justify-center items-center py-4 relative flex-col space-y-8">
-                {/* <div ref={chart}></div> */}
                 <div className="flex flex-col w-full justify-center items-center flex-wrap gap-4">
                     <img
                         src={orange_icon}
@@ -765,6 +807,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                     </div>
                 </div>
                 <div className="flex flex-col justify-center text-center items-center flex-wrap gap-4 bg-orange-100 p-4 rounded-lg shadow-lg">
+                    <div ref={chartRef} className="font-bold"></div>
                     <div className="flex flex-col items-center justify-center">
                         <span className="font-bold heading text-2xl">Top recent juicers</span>
                         <span className="font-bold opacity-60 text-sm">Last 1000 rewards</span>
