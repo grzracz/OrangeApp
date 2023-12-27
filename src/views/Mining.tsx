@@ -3,11 +3,14 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 import {
     addAccount,
+    createBackup,
     getAddress,
     isPasswordSet,
+    removeAccount,
     setPassword,
     signTransactions as signMinerTransactions,
     verifyPassword,
+    clearPassword,
 } from '@tamequest/account';
 import algosdk from 'algosdk';
 import toast from 'react-hot-toast';
@@ -68,6 +71,9 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
     const [minerBalance, setMinerBalance] = useState(0);
     const [mined, setMined] = useState(0);
     const [diff, setDiff] = useState(0);
+
+    const decimals = isMainnet ? 8 : 6;
+    const totalSupply = isMainnet ? 4000000_00000000 : 4000000_000000;
 
     const [lastBlock, setLastBlock] = useState(0);
 
@@ -167,7 +173,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
         const data = await client.getApplicationByID(applicationId).do();
         const state = data['params']['global-state'];
         const minerReward = keyToValue(state, 'miner_reward');
-        updateAverageCost(minerReward / Math.pow(10, 6));
+        updateAverageCost(minerReward / Math.pow(10, decimals));
         setAssetData({
             block: keyToValue(state, 'block'),
             startTimestamp: keyToValue(state, 'start_timestamp'),
@@ -190,7 +196,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
             lastBlock !== assetData.block &&
             assetData.lastMiner === activeAccount.address
         ) {
-            toast.success(`Sending ${formatAmount(assetData?.minerReward)} ORA to your main wallet!`);
+            toast.success(`Sending ${formatAmount(assetData?.minerReward, decimals)} ORA to your main wallet!`);
             setMined((mined) => mined + (assetData?.minerReward || 0));
             playBling();
         }
@@ -231,7 +237,10 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
             if (!(await isPasswordSet())) {
                 await setPassword(inputPassword);
                 if (await verifyPassword(inputPassword)) {
-                    const accountAddress = await addAccount(account);
+                    let accountAddress = await getAddress();
+                    if (!accountAddress) {
+                        accountAddress = await addAccount(account);
+                    }
                     if (accountAddress) {
                         setAddress(accountAddress);
                     }
@@ -430,6 +439,14 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
     const miningHours = Math.floor(miningSecondsLeft / 3600);
     const miningMinutes = Math.floor((miningSecondsLeft % 3600) / 60);
 
+    const halvingDenominator = 2 ^ (assetData?.halving || 0);
+    const totalHalvingSupply = totalSupply / halvingDenominator;
+
+    const removePassword = async () => {
+        await clearPassword();
+        setPasswordSet(false);
+    };
+
     return (
         <div className="pb-16">
             <div
@@ -465,14 +482,14 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                     />
                     <div className="flex flex-col md:flex-row justify-center items-center gap-6 bg-orange-100 p-4 rounded-lg shadow-lg">
                         <div className="flex flex-col items-center justify-center">
-                            <span className="font-bold heading text-2xl">{formatAmount(4000000000000)}</span>
+                            <span className="font-bold heading text-2xl">{formatAmount(totalSupply, decimals)}</span>
                             <span className="text-sm opacity-80">Total ORA supply</span>
                         </div>
                         <div className="flex flex-col items-center justify-center">
                             <span className="font-bold heading text-2xl">
-                                {formatAmount(assetData?.minedSupply || 0)}{' '}
+                                {formatAmount(assetData?.minedSupply || 0, decimals)}{' '}
                                 <span className="text-xs opacity-60">
-                                    {formatAmount((assetData?.minedSupply || 0) / 40000000000, 0)}%
+                                    {formatAmount((100 * (assetData?.minedSupply || 0)) / totalSupply, 0)}%
                                 </span>
                             </span>
                             <span className="text-sm opacity-80">Juiced ORA supply</span>
@@ -531,7 +548,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                                 <div className="flex flex-col items-center">
                                     <label className="block text-xs font-medium">Your balance</label>
                                     <span className="font-bold heading">
-                                        {formatAmount(accountData?.assetBalance)} ORA
+                                        {formatAmount(accountData?.assetBalance, decimals)} ORA
                                     </span>
                                 </div>
                             </div>
@@ -595,7 +612,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                                     </div>
                                     <div className="flex flex-col items-center">
                                         <label className="block text-xs font-medium">Session rewards</label>
-                                        <span className="font-bold heading">{formatAmount(mined)} ORA</span>
+                                        <span className="font-bold heading">{formatAmount(mined, decimals)} ORA</span>
                                     </div>
                                 </>
                             )}
@@ -618,22 +635,32 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                         </div>
                     </div>
                 ) : passwordSet !== undefined ? (
-                    <div className="max-w-sm flex flex-col md:max-w-md mx-4 lg:max-w-lg xl:max-w-xl space-y-4 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg border border-black">
-                        <Input
-                            value={inputPassword}
-                            onChange={setInputPassword}
-                            placeholder="Password"
-                            type="password"
-                        />
-                        {!passwordSet && (
+                    <div className="flex flex-col justify-center items-center space-y-4">
+                        <div className="max-w-sm flex flex-col md:max-w-md mx-4 lg:max-w-lg xl:max-w-xl space-y-4 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg border border-black">
                             <Input
-                                value={confirmPassword}
-                                onChange={setConfirmPassword}
-                                placeholder="Confirm password"
+                                value={inputPassword}
+                                onChange={setInputPassword}
+                                placeholder="Password"
                                 type="password"
                             />
+                            {!passwordSet && (
+                                <Input
+                                    value={confirmPassword}
+                                    onChange={setConfirmPassword}
+                                    placeholder="Confirm password"
+                                    type="password"
+                                />
+                            )}
+                            <Button onClick={signIn}>{passwordSet ? 'Unlock juicer' : 'Set juicer password'}</Button>
+                        </div>
+                        {passwordSet && (
+                            <button
+                                onClick={removePassword}
+                                className="text-sm font-bold text-red-600 cursor-pointer hover:text-red-700 transition-all"
+                            >
+                                Remove juicer data
+                            </button>
                         )}
-                        <Button onClick={signIn}>{passwordSet ? 'Unlock juicer' : 'Set juicer password'}</Button>
                     </div>
                 ) : (
                     <></>
@@ -651,26 +678,22 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                 <div className="flex items-center justify-center flex-col md:flex-row gap-6 bg-orange-100 p-4 rounded-lg shadow-lg">
                     <div className="flex flex-col items-center justify-center">
                         <span className="font-bold heading text-2xl">
-                            {formatAmount(assetData?.halvingSupply || 0)}{' '}
+                            {formatAmount(assetData?.halvingSupply || 0, decimals)}{' '}
                             <span className="text-xs opacity-60">
-                                {formatAmount(
-                                    (assetData?.halvingSupply || 0) / (40000000000 / (2 ^ (assetData?.halving || 0))),
-                                    0,
-                                )}
-                                %
+                                {formatAmount((100 * (assetData?.halvingSupply || 0)) / totalHalvingSupply, 0)}%
                             </span>
                         </span>
                         <span className="text-sm opacity-80">Halving ORA supply</span>
                     </div>
                     <div className="flex flex-col items-center justify-center">
                         <span className="font-bold heading text-2xl">
-                            {formatAmount(assetData?.minerReward || 0)} ORA
+                            {formatAmount(assetData?.minerReward || 0, decimals)} ORA
                         </span>
                         <span className="text-sm opacity-80">Juicer reward</span>
                     </div>
                     <div className="flex flex-col items-center justify-center">
                         <span className="font-bold heading text-2xl">
-                            ~{assetData ? formatAmount((assetData.halvingSupply * 10) / assetData.minerReward, 0) : 0}
+                            ~{assetData ? formatAmount((assetData.halvingSupply * 5) / assetData.minerReward, 0) : 0}
                         </span>
                         <span className="text-sm opacity-80">Rounds to halving</span>
                     </div>
@@ -715,7 +738,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                                         <AccountName account={address as string} />
                                     </div>
                                     <div className="flex items-center justify-center col-span-2">
-                                        {formatAmount((amount as number) * (assetData?.minerReward || 0))}
+                                        {formatAmount((amount as number) * (assetData?.minerReward || 0), decimals)}
                                     </div>
                                     <div className="flex items-center justify-center col-span-2">
                                         {formatAmount(cost as number)}

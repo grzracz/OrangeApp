@@ -549,10 +549,10 @@
   resolved "https://registry.yarnpkg.com/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.8.0.tgz#05057436705f0be9203c30612a48225ec70af741"
   integrity sha512-kb4/auKXkYKqlUYTE8s40FcJIj5soOyRLHKd4ugR0dCq0G2EfcF54eYcfQiGkHzjidZ40daB4ulsFdtqNKZtBg==
 
-"@tamequest/account@^1.0.0":
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/@tamequest/account/-/account-1.0.0.tgz#1689a98627aa82d10089425d93633f0177b8d64b"
-  integrity sha512-A7/9R1lIaGf9byCrN1yhnsrVLut60WDP8mHw8Bzgb2tkdqKU5VOmraLm2irpzeypbzzbjCafFmPaHhjn1vrvIw==
+"@tamequest/account@^1.0.1":
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/@tamequest/account/-/account-1.0.1.tgz#a355ae019f048e7471498659d6e97bc40b4ed592"
+  integrity sha512-MUEqf5k/hKOzg6VY5eYxGBP6y3OW3i11hG+naW/U8vsBlr7mTtE8JWJ8ZMq62ZB8w1e/2oPcgL77llTJxwo0og==
   dependencies:
     "@webcrypto/storage" "^3.1.0"
     algosdk "^2.7.0"
