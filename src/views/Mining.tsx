@@ -3,14 +3,12 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 import {
     addAccount,
-    createBackup,
     getAddress,
     isPasswordSet,
-    removeAccount,
     setPassword,
     signTransactions as signMinerTransactions,
     verifyPassword,
-    clearPassword,
+    clearData,
 } from '@tamequest/account';
 import algosdk from 'algosdk';
 import toast from 'react-hot-toast';
@@ -25,6 +23,7 @@ import useSound from 'use-sound';
 import bling from '../assets/bling.wav';
 import Timer from 'components/Timer';
 import dayjs from 'dayjs';
+import Modal from 'components/Modal';
 
 type AccountData = {
     assetBalance: number;
@@ -89,6 +88,8 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
 
     const { activeAccount, providers, signTransactions } = useWallet();
     const [pendingTxs, setPendingTxs] = useState(0);
+
+    const [modalOpen, setModalOpen] = useState(false);
 
     const checkPasswordSet = async () => {
         setPasswordSet(await isPasswordSet());
@@ -204,7 +205,9 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
     }, [assetData]);
 
     useEffect(() => {
-        const interval = setInterval(() => setDiff(dayjs().diff(dayjs.unix(assetData?.startTimestamp || 0))), 33);
+        const interval = setInterval(() => {
+            setDiff(Math.min(dayjs().diff(dayjs.unix(assetData?.startTimestamp || 0)), 1));
+        }, 33);
         return () => clearInterval(interval);
     }, [assetData?.startTimestamp]);
 
@@ -346,7 +349,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
             algosdk.makePaymentTxnWithSuggestedParamsFromObject({
                 from: address,
                 to: activeAccount?.address || address,
-                amount: 0,
+                amount: minerBalance,
                 closeRemainderTo: activeAccount?.address || address,
                 suggestedParams: await client.getTransactionParams().do(),
             }),
@@ -408,9 +411,13 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
         }
     };
 
+    const diffSeconds = diff - (diff % 1000);
+
     useEffect(() => {
         let interval = 0;
-        if (mining && activeAccount && assetData && assetData.lastMiner) {
+        if (mining && diffSeconds < 0) {
+            toast.loading(`Juicing will start in ${Math.abs(diffSeconds / 1000)} seconds!`, { duration: 1000 });
+        } else if (mining && activeAccount && assetData && assetData.lastMiner) {
             interval = setInterval(() => mine(tpm, fpt, activeAccount.address, address, assetData.lastMiner), 1000);
         }
         if (!mining) {
@@ -420,7 +427,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
             miningSecond = 0;
         }
         return () => clearInterval(interval);
-    }, [mining, assetData?.lastMiner]);
+    }, [mining, assetData?.lastMiner, diffSeconds]);
 
     useEffect(() => {
         if (mining && cost > minerBalance) {
@@ -442,13 +449,31 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
     const halvingDenominator = 2 ^ (assetData?.halving || 0);
     const totalHalvingSupply = totalSupply / halvingDenominator;
 
-    const removePassword = async () => {
-        await clearPassword();
+    const removeJuicerData = async () => {
+        await clearData();
         setPasswordSet(false);
+        setModalOpen(false);
     };
 
     return (
         <div className="pb-16">
+            <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
+                <div className="max-w-md flex flex-col space-y-4 bg-orange-500 p-4 rounded-lg shadow-lg border border-black">
+                    <div className="flex flex-col items-center justify-center text-center">
+                        <h3 className="font-bold pb-2">Are you sure?</h3>
+                        <h4 className="text-sm text-red-800">
+                            This action is irreversible. You will lose access to your current juicer and will not be
+                            able to withdraw your funds stored there.
+                        </h4>
+                    </div>
+                    <div className="flex items-center w-full justify-center space-x-2">
+                        <Button onClick={() => setModalOpen(false)}>Cancel</Button>
+                        <Button onClick={removeJuicerData} secondary>
+                            Remove juicer data
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
             <div
                 className={classNames(
                     'fixed top-0 w-full z-10 text-sm px-2 py-1 font-mono text-center text-orange-800',
@@ -623,12 +648,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                             )}
                             <Button
                                 onClick={() => setMining(!mining)}
-                                disabled={
-                                    !accountData.appOptedIn ||
-                                    !accountData.assetOptedIn ||
-                                    minerBalance < cost ||
-                                    diff < 0
-                                }
+                                disabled={!accountData.appOptedIn || !accountData.assetOptedIn || minerBalance < cost}
                             >
                                 {mining ? 'Stop' : 'Start'} juicing
                             </Button>
@@ -636,6 +656,10 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                     </div>
                 ) : passwordSet !== undefined ? (
                     <div className="flex flex-col justify-center items-center space-y-4">
+                        <span className="max-w-screen-sm text-center text-white bg-red-600 rounded text-sm p-2">
+                            Your juicer is a local hot wallet stored in browser storage. <br />
+                            <b>Make sure to withdraw your ALGO before clearing browser data!</b>
+                        </span>
                         <div className="max-w-sm flex flex-col md:max-w-md mx-4 lg:max-w-lg xl:max-w-xl space-y-4 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg border border-black">
                             <Input
                                 value={inputPassword}
@@ -655,7 +679,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                         </div>
                         {passwordSet && (
                             <button
-                                onClick={removePassword}
+                                onClick={() => setModalOpen(true)}
                                 className="text-sm font-bold text-red-600 cursor-pointer hover:text-red-700 transition-all"
                             >
                                 Remove juicer data
@@ -665,14 +689,22 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                 ) : (
                     <></>
                 )}
-                {pendingTxs > 0 && (
-                    <div className="flex flex-col w-full justify-center items-center flex-wrap gap-4">
-                        <span className="font-bold heading text-2xl">Pending transactions</span>
-                        <div className="flex w-full flex-wrap gap-2 max-w-screen-md justify-center items-center">
-                            {new Array(pendingTxs).fill(0).map((_, i) => (
-                                <img src={orange_icon} className="w-8 h-8" key={`tx-${i}`} />
-                            ))}
-                        </div>
+                {txIndex > 0 && (
+                    <div className="flex flex-col w-full justify-center items-center flex-wrap gap-2">
+                        <span className="font-bold heading text-2xl">Your juicing transactions</span>
+                        <span className="heading">
+                            <b>{txIndex}</b> sent, <b>{pendingTxs}</b> pending
+                        </span>
+                        {(mining || pendingTxs > 0) && (
+                            <div
+                                className="flex w-full flex-wrap gap-2 max-w-screen-md justify-center items-center overflow-y-auto"
+                                style={{ height: 100, maxHeight: 100 }}
+                            >
+                                {new Array(pendingTxs).fill(0).map((_, i) => (
+                                    <img src={orange_icon} className="w-8 h-8" key={`tx-${i}`} />
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
                 <div className="flex items-center justify-center flex-col md:flex-row gap-6 bg-orange-100 p-4 rounded-lg shadow-lg">
