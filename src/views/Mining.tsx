@@ -485,7 +485,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                 <a
                     className="underline"
                     target="_blank"
-                    href={`https://${isMainnet ? '' : 'testnet.'}algoexplorer.io/application/${applicationId}`}
+                    href={`https://${isMainnet ? '' : 'testnet.'}allo.info/application/${applicationId}`}
                 >
                     {applicationId}
                 </a>{' '}
@@ -493,7 +493,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                 <a
                     className="underline"
                     target="_blank"
-                    href={`https://${isMainnet ? '' : 'testnet.'}algoexplorer.io/asset/${assetId}`}
+                    href={`https://${isMainnet ? '' : 'testnet.'}allo.info/asset/${assetId}`}
                 >
                     {assetId}
                 </a>

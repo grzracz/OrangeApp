@@ -64,12 +64,31 @@ function Home() {
                         any account submits a "mine" (juice) application transaction, the fee paid to the Algorand
                         protocol is saved in the contract. The miner with the total highest amount of fees paid in total
                         that has submittted a "mine" transaction within a given period is rewarded & coins are sent
-                        automatically after the next period of juicing, while his (and only his) total amount of fees
-                        paid is reset to zero.
+                        automatically after the next period of juicing, while their (and only their) total amount of
+                        fees paid is reset to zero.
+                    </div>
+                    <div className="indent-8">
+                        Fee effort is cumulative: only the winner has his effort reduced - even slow juicers eventually
+                        will reach the top, no matter which round.
                     </div>
                     <div className="indent-8">
                         This means that <b className="opacity-60">ORA</b> functions both as a store of value & as a way
                         to reward users increasing the Algorand network throughput.
+                    </div>
+                    <div className="indent-8">
+                        Got more questions? Check{' '}
+                        <a
+                            className="underline font-bold"
+                            target="_blank"
+                            href="https://twitter.com/grzracz/status/1740669264988876899"
+                        >
+                            Twitter/X
+                        </a>{' '}
+                        or join{' '}
+                        <a className="underline font-bold" target="_blank" href="https://discord.gg/fMqSB5vRX2">
+                            Discord
+                        </a>
+                        !
                     </div>
                 </div>
                 <div className="pt-16 opacity-50 text-xs">There is nothing here, go juice</div>
