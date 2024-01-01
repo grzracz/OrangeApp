@@ -50,6 +50,7 @@ let miningMinute = 0;
 let miningSecond = 0;
 
 type MiningProps = {
+    nodeToken: string;
     nodeUrl: string;
     nodePort: number;
     indexerUrl: string;
@@ -59,8 +60,17 @@ type MiningProps = {
     isMainnet?: boolean;
 };
 
-function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, assetId, isMainnet }: MiningProps) {
-    const client = new algosdk.Algodv2('', nodeUrl, nodePort);
+function Mining({
+    nodeToken,
+    nodeUrl,
+    nodePort,
+    indexerPort,
+    indexerUrl,
+    applicationId,
+    assetId,
+    isMainnet,
+}: MiningProps) {
+    const client = new algosdk.Algodv2(nodeToken, nodeUrl, nodePort);
     const [playBling] = useSound(bling);
     const account = useMemo(() => algosdk.generateAccount(), []);
     const [address, setAddress] = useState('');

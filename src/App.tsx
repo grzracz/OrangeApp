@@ -13,6 +13,7 @@ import {
     MAINNET_INDEXER_PORT,
     MAINNET_INDEXER_URL,
     MAINNET_NODE_PORT,
+    MAINNET_NODE_TOKEN,
     MAINNET_NODE_URL,
     TESTNET_APP_INDEX,
     TESTNET_ASSET_INDEX,
@@ -42,6 +43,7 @@ function App() {
                         path="testnet"
                         element={
                             <Mining
+                                nodeToken=""
                                 nodeUrl={TESTNET_NODE_URL}
                                 nodePort={TESTNET_NODE_PORT}
                                 indexerUrl={TESTNET_INDEXER_URL}
@@ -55,6 +57,7 @@ function App() {
                         path="mainnet"
                         element={
                             <Mining
+                                nodeToken={MAINNET_NODE_TOKEN}
                                 nodeUrl={MAINNET_NODE_URL}
                                 nodePort={MAINNET_NODE_PORT}
                                 indexerUrl={MAINNET_INDEXER_URL}
