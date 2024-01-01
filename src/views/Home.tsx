@@ -53,7 +53,7 @@ function Home() {
                             (ticker: <b>ORA</b>)
                         </span>{' '}
                         is a "mineable" Algorand Standard Asset fully managed by an open-source smart contract. It
-                        operates similarily to <b>Bitcoin</b>{' '}
+                        operates similarly to <b>Bitcoin</b>{' '}
                         <span className="opacity-60">
                             (ticker: <b>BTC</b>)
                         </span>
@@ -63,7 +63,7 @@ function Home() {
                         The mining mechanism of <b className="opacity-60">ORA</b> is based on transaction fees: whenever
                         any account submits a "mine" (juice) application transaction, the fee paid to the Algorand
                         protocol is saved in the contract. The miner with the total highest amount of fees paid in total
-                        that has submittted a "mine" transaction within a given period is rewarded & coins are sent
+                        that has submitted a "mine" transaction within a given period is rewarded & coins are sent
                         automatically after the next period of juicing, while their (and only their) total amount of
                         fees paid is reset to zero.
                     </div>

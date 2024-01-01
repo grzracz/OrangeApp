@@ -777,7 +777,8 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                                     </div>
                                     <div className="flex items-center justify-center col-span-2">
                                         {formatAmount(
-                                            (cost as number) / ((amount as number) * (assetData?.minerReward || 0)),
+                                            ((isMainnet ? 100 : 1) * (cost as number)) /
+                                                ((amount as number) * (assetData?.minerReward || 0)),
                                             0,
                                         )}
                                     </div>
