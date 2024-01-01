@@ -592,67 +592,82 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                                 </span>
                             </div>
                         )}
-                        <div className="flex flex-col items-center gap-2 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg">
-                            {!mining && (
-                                <>
-                                    <Slider
-                                        name="Transactions per minute"
-                                        min={6}
-                                        max={7680}
-                                        value={tpm}
-                                        ticker={`TPM (${formatAmount(tpm / 60, 0)} TPS)`}
-                                        onChange={setTpm}
-                                        step={1}
-                                    />
-                                    <Slider
-                                        name="Fee per transaction"
-                                        min={2000}
-                                        max={20000}
-                                        step={500}
-                                        value={fpt}
-                                        ticker="ALGO"
-                                        decimals={6}
-                                        onChange={setFpt}
-                                    />
-                                </>
-                            )}
-                            <div className="flex flex-col items-center">
-                                <label className="block text-xs font-medium">Cost per minute</label>
-                                <span className="font-bold heading">{formatAmount(cost * 60)} ALGO</span>
+                        {isMainnet ? (
+                            <div className="flex w-56 font-bold text-sm bg-red-400 rounded-lg p-2 text-center">
+                                Frontend juicing is disabled to give important Algorand infrastructure (like indexers)
+                                time to upgrade. It will come back soon! ORA still works when being mined through your
+                                own node and CLI.
+                                <br />
+                                <br />
+                                Please withdraw funds from your juicer!
                             </div>
-                            <div className="flex flex-col items-center">
-                                <label className="block text-xs font-medium">Juicing time left</label>
-                                <span className="font-bold heading">
-                                    {miningHours} {miningHours === 1 ? 'hour' : 'hours'}, {miningMinutes}{' '}
-                                    {miningMinutes === 1 ? 'minute' : 'minutes'}
-                                </span>
+                        ) : (
+                            <div className="flex flex-col items-center gap-2 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg">
+                                {!mining && (
+                                    <>
+                                        <Slider
+                                            name="Transactions per minute"
+                                            min={6}
+                                            max={7680}
+                                            value={tpm}
+                                            ticker={`TPM (${formatAmount(tpm / 60, 0)} TPS)`}
+                                            onChange={setTpm}
+                                            step={1}
+                                        />
+                                        <Slider
+                                            name="Fee per transaction"
+                                            min={2000}
+                                            max={20000}
+                                            step={500}
+                                            value={fpt}
+                                            ticker="ALGO"
+                                            decimals={6}
+                                            onChange={setFpt}
+                                        />
+                                    </>
+                                )}
+                                <div className="flex flex-col items-center">
+                                    <label className="block text-xs font-medium">Cost per minute</label>
+                                    <span className="font-bold heading">{formatAmount(cost * 60)} ALGO</span>
+                                </div>
+                                <div className="flex flex-col items-center">
+                                    <label className="block text-xs font-medium">Juicing time left</label>
+                                    <span className="font-bold heading">
+                                        {miningHours} {miningHours === 1 ? 'hour' : 'hours'}, {miningMinutes}{' '}
+                                        {miningMinutes === 1 ? 'minute' : 'minutes'}
+                                    </span>
+                                </div>
+                                {mining && (
+                                    <>
+                                        <div className="flex flex-col items-center">
+                                            <label className="block text-xs font-medium">Current effort</label>
+                                            <span className="font-bold heading">
+                                                {formatAmount(accountData?.effort)} ALGO
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <label className="block text-xs font-medium">Session rewards</label>
+                                            <span className="font-bold heading">
+                                                {formatAmount(mined, decimals)} ORA
+                                            </span>
+                                        </div>
+                                    </>
+                                )}
+                                {mining && (
+                                    <span className="text-orange-900 text-xs text-bold animate-pulse">
+                                        Juicing in progress...
+                                    </span>
+                                )}
+                                <Button
+                                    onClick={() => setMining(!mining)}
+                                    disabled={
+                                        !accountData.appOptedIn || !accountData.assetOptedIn || minerBalance < cost
+                                    }
+                                >
+                                    {mining ? 'Stop' : 'Start'} juicing
+                                </Button>
                             </div>
-                            {mining && (
-                                <>
-                                    <div className="flex flex-col items-center">
-                                        <label className="block text-xs font-medium">Current effort</label>
-                                        <span className="font-bold heading">
-                                            {formatAmount(accountData?.effort)} ALGO
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-col items-center">
-                                        <label className="block text-xs font-medium">Session rewards</label>
-                                        <span className="font-bold heading">{formatAmount(mined, decimals)} ORA</span>
-                                    </div>
-                                </>
-                            )}
-                            {mining && (
-                                <span className="text-orange-900 text-xs text-bold animate-pulse">
-                                    Juicing in progress...
-                                </span>
-                            )}
-                            <Button
-                                onClick={() => setMining(!mining)}
-                                disabled={!accountData.appOptedIn || !accountData.assetOptedIn || minerBalance < cost}
-                            >
-                                {mining ? 'Stop' : 'Start'} juicing
-                            </Button>
-                        </div>
+                        )}
                     </div>
                 ) : passwordSet !== undefined ? (
                     <div className="flex flex-col justify-center items-center space-y-4">
