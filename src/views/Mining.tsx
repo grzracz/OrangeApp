@@ -24,7 +24,7 @@ import bling from '../assets/bling.wav';
 import Timer from 'components/Timer';
 import dayjs from 'dayjs';
 import Modal from 'components/Modal';
-import { barX, barY, plot, text } from '@observablehq/plot';
+import { barX, plot, text } from '@observablehq/plot';
 import axios from 'axios';
 
 type AccountData = {
@@ -251,7 +251,7 @@ function Mining({
                     const addr = nfdResponse.data[acc].name;
                     return { account: addr, effort: effortAlgos };
                 } catch {
-                    const addr = `${acc.slice(0, 8)}...${acc.slice(-8)}`;
+                    const addr = `${acc.slice(0, 4)}...${acc.slice(-4)}`;
                     return { account: addr, effort: effortAlgos };
                 }
             }),
@@ -279,7 +279,7 @@ function Mining({
         const graph = plot({
             title: 'Active Juicer Efforts',
             marginLeft: 140,
-            // marginRight: 20,
+            marginRight: 40,
             x: { label: null, axis: null },
             y: { label: null },
             marks: [
@@ -296,8 +296,8 @@ function Mining({
                     text: 'effort',
                     y: 'account',
                     x: 'effort',
-                    textAnchor: 'end',
-                    dx: -8,
+                    textAnchor: 'start',
+                    dx: 2,
                 }),
             ],
         });
