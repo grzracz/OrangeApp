@@ -1,0 +1,82 @@
+{
+  "name": "OrangeMiner",
+  "desc": "",
+  "methods": [
+    {
+      "name": "createApplication",
+      "args": [],
+      "returns": {
+        "type": "void"
+      }
+    },
+    {
+      "name": "updateApplication",
+      "args": [],
+      "returns": {
+        "type": "void"
+      }
+    },
+    {
+      "name": "updateConfig",
+      "args": [
+        {
+          "name": "minDeposit",
+          "type": "uint64"
+        },
+        {
+          "name": "baseTxnFee",
+          "type": "uint64"
+        },
+        {
+          "name": "marketRateBps",
+          "type": "uint64"
+        }
+      ],
+      "returns": {
+        "type": "void"
+      }
+    },
+    {
+      "name": "deposit",
+      "args": [],
+      "returns": {
+        "type": "void"
+      }
+    },
+    {
+      "name": "withdraw",
+      "args": [
+        {
+          "name": "rewardsBps",
+          "type": "uint64"
+        },
+        {
+          "name": "depositBps",
+          "type": "uint64"
+        }
+      ],
+      "returns": {
+        "type": "void"
+      }
+    },
+    {
+      "name": "repay",
+      "args": [
+        {
+          "name": "address",
+          "type": "address"
+        }
+      ],
+      "returns": {
+        "type": "void"
+      }
+    },
+    {
+      "name": "mine",
+      "args": [],
+      "returns": {
+        "type": "void"
+      }
+    }
+  ]
+}

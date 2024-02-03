@@ -15,3 +15,5 @@ export const MAINNET_NODE_URL = 'https://mainnet-api.algonode.cloud';
 export const MAINNET_NODE_PORT = 443;
 export const MAINNET_INDEXER_URL = 'https://mainnet-idx.algonode.cloud';
 export const MAINNET_INDEXER_PORT = 443;
+
+export const STAKING_APP_INDEX = 1439234347;

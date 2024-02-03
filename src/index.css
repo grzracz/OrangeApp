@@ -20,6 +20,10 @@ body {
     background: #fafafa;
 }
 
+.font-inter {
+    font-family: Inter, monospace;
+}
+
 .font-mono {
     font-family: Roboto Mono, monospace !important;
 }
@@ -29,6 +33,7 @@ body {
     width: 100vw;
     height: 100vh;
     overflow: hidden;
+    pointer-events: none;
 }
 
 .ball {

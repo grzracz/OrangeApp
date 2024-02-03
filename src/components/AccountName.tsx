@@ -4,9 +4,10 @@ import axios from 'axios';
 
 interface AccountNameProps {
     account?: string;
+    className?: string;
 }
 
-const AccountName: React.FC<AccountNameProps> = ({ account }) => {
+const AccountName: React.FC<AccountNameProps> = ({ account, className }) => {
     const [copied, setCopied] = useState(false);
     const [nfd, setNfd] = useState('');
 
@@ -37,13 +38,15 @@ const AccountName: React.FC<AccountNameProps> = ({ account }) => {
         <div className="relative flex flex-col items-center select-none">
             <div
                 className={classNames(
-                    'flex font-mono cursor-pointer items-center pt-2 text-xs',
+                    'flex cursor-pointer items-center pt-2',
                     copied ? 'opacity-10 hover:opacity-10' : 'hover:opacity-80',
+                    nfd ? 'font-inter text-lg' : 'font-mono text-xs',
+                    className,
                 )}
                 onClick={copy}
             >
                 {nfd ? (
-                    <span className="text-base font-bold break-word max-w-sm">{nfd}</span>
+                    <span className="font-bold break-word max-w-sm">{nfd}</span>
                 ) : (
                     <>
                         <b>{address.slice(0, 4)}</b>

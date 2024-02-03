@@ -32,7 +32,7 @@ function Home() {
                         </h1>
                     </div>
                 </header>
-                <img src={orange} className="w-32 md:w-48 lg:w-64 h-full shadow rounded-lg" />
+
                 <div className="flex flex-col gap-2 justify-center items-center">
                     <h2 className="heading text-2xl">
                         Start juicing <b className="opacity-60">ORA</b>!
@@ -46,6 +46,13 @@ function Home() {
                         </Link>
                     </div>
                 </div>
+                <span className="text-sm opacity-80 text-gray-500">
+                    You can withdraw from the old mainnet juicer{' '}
+                    <Link to="mainnet-old" className="py-6 font-bold hover:opacity-80 transition-all">
+                        here
+                    </Link>
+                </span>
+                <img src={orange} className="w-32 md:w-48 lg:w-64 h-full shadow rounded-lg" />
                 <div className="max-w-sm md:max-w-md mx-4 lg:max-w-lg xl:max-w-xl space-y-4 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg">
                     <div className="indent-8">
                         <b>Orange</b>{' '}

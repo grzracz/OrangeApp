@@ -21,6 +21,7 @@ import {
     TESTNET_NODE_PORT,
     TESTNET_NODE_URL,
 } from 'consts';
+import Staking from 'views/Staking';
 
 function App() {
     const providers = useInitializeProviders({
@@ -53,6 +54,20 @@ function App() {
                     />
                     <Route
                         path="mainnet"
+                        element={
+                            <Staking
+                                nodeUrl={MAINNET_NODE_URL}
+                                nodePort={MAINNET_NODE_PORT}
+                                indexerUrl={MAINNET_INDEXER_URL}
+                                indexerPort={MAINNET_INDEXER_PORT}
+                                applicationId={MAINNET_APP_INDEX}
+                                assetId={MAINNET_ASSET_INDEX}
+                                isMainnet
+                            />
+                        }
+                    />
+                    <Route
+                        path="mainnet-old"
                         element={
                             <Mining
                                 nodeUrl={MAINNET_NODE_URL}

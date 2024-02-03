@@ -24,6 +24,7 @@ import bling from '../assets/bling.wav';
 import Timer from 'components/Timer';
 import dayjs from 'dayjs';
 import Modal from 'components/Modal';
+import { Link } from 'react-router-dom';
 
 type AccountData = {
     assetBalance: number;
@@ -501,10 +502,12 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
             </div>
             <div className="flex w-full justify-center items-center py-4 relative flex-col space-y-8">
                 <div className="flex flex-col w-full justify-center items-center flex-wrap gap-4">
-                    <img
-                        src={orange_icon}
-                        className={classNames('w-24 md:w-32 lg:w-48 h-full z-20', mining && 'animate-bounce')}
-                    />
+                    <Link to="/" className="pointer-events-auto pt-6 hover:opacity-80 transition-all">
+                        <img
+                            src={orange_icon}
+                            className={classNames('w-24 md:w-32 lg:w-48 h-full z-20', mining && 'animate-bounce')}
+                        />
+                    </Link>
                     <div className="flex flex-col md:flex-row justify-center items-center gap-6 bg-orange-100 p-4 rounded-lg shadow-lg">
                         <div className="flex flex-col items-center justify-center">
                             <span className="font-bold heading text-2xl">{formatAmount(totalSupply, decimals)}</span>
@@ -543,7 +546,13 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                         <div className="space-y-2">
                             <div className="flex flex-col  items-center gap-2 bg-orange-500 bg-opacity-80 p-6 rounded-lg shadow-lg">
                                 <div className="font-bold">Your juicer:</div>
-                                <QRCode value={address} size={140} className="border-4 hidden md:block border-white" />
+                                {!isMainnet && (
+                                    <QRCode
+                                        value={address}
+                                        size={140}
+                                        className="border-4 hidden md:block border-white"
+                                    />
+                                )}
                                 <AccountName account={address} />
                                 <div className="flex flex-col items-center">
                                     <label className="block text-xs font-medium">Juicer balance</label>
@@ -587,21 +596,19 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                                         </div>
                                     </Button>
                                 ))}
-                                <span className="text-xs opacity-80 py-2">
-                                    Connect your main wallet to start juicing!
-                                </span>
+                                {isMainnet ? (
+                                    <span className="text-xs opacity-80 w-64 py-2">
+                                        Juicing from the web app is disabled for mainnet. Connect your main wallet to
+                                        withdraw from your juicer.
+                                    </span>
+                                ) : (
+                                    <span className="text-xs opacity-80 py-2">
+                                        Connect your main wallet to start juicing!
+                                    </span>
+                                )}
                             </div>
                         )}
-                        {isMainnet ? (
-                            <div className="flex w-56 font-bold text-sm bg-red-400 rounded-lg p-2 text-center">
-                                Frontend juicing is disabled to give important Algorand infrastructure (like indexers)
-                                time to upgrade. It will come back soon! ORA still works when being mined through your
-                                own node and CLI.
-                                <br />
-                                <br />
-                                Please withdraw funds from your juicer!
-                            </div>
-                        ) : (
+                        {!isMainnet && (
                             <div className="flex flex-col items-center gap-2 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg">
                                 {!mining && (
                                     <>
@@ -745,25 +752,27 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                         <span className="text-sm opacity-80">Rounds to halving</span>
                     </div>
                 </div>
-                <div className="flex flex-col w-full justify-center items-center flex-wrap gap-4 p-2">
-                    <span className="font-bold heading text-2xl">How to juice?</span>
-                    <div className="flex items-start gap-4 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg">
-                        <ul>
-                            <li>
-                                <b>One.</b> Connect & opt in with your main wallet.
-                            </li>
-                            <li>
-                                <b>Two.</b> Deposit funds to your juicer.
-                            </li>
-                            <li>
-                                <b>Three.</b> Update juicing settings.
-                            </li>
-                            <li>
-                                <b>Four.</b> Start juicing!
-                            </li>
-                        </ul>
+                {!isMainnet && (
+                    <div className="flex flex-col w-full justify-center items-center flex-wrap gap-4 p-2">
+                        <span className="font-bold heading text-2xl">How to juice?</span>
+                        <div className="flex items-start gap-4 bg-orange-500 bg-opacity-80 p-4 rounded-lg shadow-lg">
+                            <ul>
+                                <li>
+                                    <b>One.</b> Connect & opt in with your main wallet.
+                                </li>
+                                <li>
+                                    <b>Two.</b> Deposit funds to your juicer.
+                                </li>
+                                <li>
+                                    <b>Three.</b> Update juicing settings.
+                                </li>
+                                <li>
+                                    <b>Four.</b> Start juicing!
+                                </li>
+                            </ul>
+                        </div>
                     </div>
-                </div>
+                )}
                 <div className="flex flex-col justify-center text-center items-center flex-wrap gap-4 bg-orange-100 p-4 rounded-lg shadow-lg">
                     <div className="flex flex-col items-center justify-center">
                         <span className="font-bold heading text-2xl">Top recent juicers</span>
