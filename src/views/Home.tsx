@@ -92,7 +92,7 @@ function Home() {
                             Twitter/X
                         </a>{' '}
                         or join{' '}
-                        <a className="underline font-bold" target="_blank" href="https://discord.gg/fMqSB5vRX2">
+                        <a className="underline font-bold" target="_blank" href="https://discord.gg/y4RQT4DNQs">
                             Discord
                         </a>
                         !
