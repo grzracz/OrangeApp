@@ -269,6 +269,7 @@ function Staking({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, as
 
     useEffect(() => {
         updateAssetData();
+        updateAppData();
         const interval = setInterval(updateAssetData, 5000);
         return () => clearInterval(interval);
     }, []);
