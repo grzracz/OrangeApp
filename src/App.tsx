@@ -66,7 +66,7 @@ function App() {
                             />
                         }
                     />
-                    <Route
+                    {/* <Route
                         path="mainnet-old"
                         element={
                             <Mining
@@ -79,7 +79,7 @@ function App() {
                                 isMainnet
                             />
                         }
-                    />
+                    /> */}
                 </Routes>
             </HashRouter>
             <span className="p-2 lg:absolute bottom-0 left-0 text-sm opacity-20">Powered by Nodely.io</span>
