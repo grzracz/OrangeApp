@@ -45,6 +45,12 @@ function Home() {
                             <Button>MainNet</Button>
                         </Link>
                     </div>
+                    <h2 className="font-bold">Become part of something bigger!</h2>
+                    <div>
+                        <Link to="canvas" className="py-6">
+                            <Button>Canvas</Button>
+                        </Link>
+                    </div>
                 </div>
                 {/* <span className="text-sm opacity-80 text-gray-500">
                     You can withdraw from the old mainnet juicer{' '}

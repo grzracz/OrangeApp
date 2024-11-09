@@ -43,6 +43,7 @@ type AssetData = {
     minedSupply: number;
     minerReward: number;
     lastMiner: string;
+    lastEffort: number;
 };
 
 let txIndex = 0;
@@ -53,14 +54,12 @@ let miningSecond = 0;
 type MiningProps = {
     nodeUrl: string;
     nodePort: number;
-    indexerUrl: string;
-    indexerPort: number;
     applicationId: number;
     assetId: number;
     isMainnet?: boolean;
 };
 
-function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, assetId, isMainnet }: MiningProps) {
+function Mining({ nodeUrl, nodePort, applicationId, assetId, isMainnet }: MiningProps) {
     const client = new algosdk.Algodv2('', nodeUrl, nodePort);
     const [playBling] = useSound(bling);
     const account = useMemo(() => algosdk.generateAccount(), []);
@@ -84,8 +83,6 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
     const [fpt, setFpt] = useState(2000);
 
     const [mining, setMining] = useState(false);
-    const [averageCost, setAverageCost] = useState(0);
-    const [minerStats, setMinerStats] = useState<Record<string, number[]>>({});
 
     const { activeAccount, providers, signTransactions } = useWallet();
     const [pendingTxs, setPendingTxs] = useState(0);
@@ -137,45 +134,10 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
         return '';
     };
 
-    const updateAverageCost = async (minerReward: number) => {
-        const indexer = new algosdk.Indexer('', indexerUrl, indexerPort);
-        const txs = await indexer
-            .searchForTransactions()
-            .address(algosdk.getApplicationAddress(applicationId))
-            .addressRole('sender')
-            .do();
-        const costs: number[] = [];
-        const miners: Record<string, [number, number]> = {};
-        txs['transactions'].forEach((tx: any) => {
-            try {
-                const address = algosdk.encodeAddress(
-                    // @ts-ignore
-                    Uint8Array.from(Buffer.from(tx['logs'][0], 'base64')).slice(0, 32),
-                );
-                if (address !== 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ') {
-                    const cost = algosdk.decodeUint64(
-                        // @ts-ignore
-                        Uint8Array.from(Buffer.from(tx['logs'][0], 'base64')).slice(32),
-                        'safe',
-                    );
-                    if (miners[address]) {
-                        miners[address][0] += 1;
-                        miners[address][1] += cost;
-                    } else miners[address] = [1, cost];
-                    costs.push(cost);
-                }
-            } catch {}
-        });
-        const average = costs.reduce((a, b) => a + b, 0) / costs.length;
-        setAverageCost(average / (minerReward || 1));
-        setMinerStats(miners);
-    };
-
     const updateAssetData = async () => {
         const data = await client.getApplicationByID(applicationId).do();
         const state = data['params']['global-state'];
         const minerReward = keyToValue(state, 'miner_reward');
-        updateAverageCost(minerReward / Math.pow(10, decimals));
         setAssetData({
             block: keyToValue(state, 'block'),
             startTimestamp: keyToValue(state, 'start_timestamp'),
@@ -186,6 +148,7 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
             minedSupply: keyToValue(state, 'mined_supply'),
             minerReward,
             lastMiner: keyToAddress(state, 'last_miner'),
+            lastEffort: keyToValue(state, 'last_miner_effort'),
         });
     };
 
@@ -437,12 +400,6 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
         }
     }, [cost, minerBalance, mining]);
 
-    const minerList = useMemo(() => {
-        const addresses = Object.keys(minerStats);
-        addresses.sort((a, b) => minerStats[b][0] - minerStats[a][0]);
-        return addresses.map((a) => [a, minerStats[a][0], minerStats[a][1]]);
-    }, [minerStats]);
-
     const miningSecondsLeft = minerBalance / cost;
     const miningHours = Math.floor(miningSecondsLeft / 3600);
     const miningMinutes = Math.floor((miningSecondsLeft % 3600) / 60);
@@ -523,7 +480,9 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                             <span className="text-sm opacity-80">Juiced ORA supply</span>
                         </div>
                         <div className="flex flex-col items-center justify-center">
-                            <span className="font-bold heading text-2xl">{formatAmount(averageCost)} ALGO</span>
+                            <span className="font-bold heading text-2xl">
+                                {formatAmount(assetData?.lastEffort || 0)} ALGO
+                            </span>
                             <span className="text-sm opacity-80">Recent effort per ORA</span>
                         </div>
                         <div className="flex flex-col items-center justify-center">
@@ -773,46 +732,6 @@ function Mining({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, ass
                         </div>
                     </div>
                 )}
-                <div className="flex flex-col justify-center text-center items-center flex-wrap gap-4 bg-orange-100 p-4 rounded-lg shadow-lg">
-                    <div className="flex flex-col items-center justify-center">
-                        <span className="font-bold heading text-2xl">Top recent juicers</span>
-                        <span className="font-bold opacity-60 text-sm">Last 1000 rewards</span>
-                    </div>
-                    {minerList.length > 0 ? (
-                        <div className="grid grid-cols-10">
-                            <b className="col-span-1"></b>
-                            <b className="col-span-3">Address</b>
-                            <b className="col-span-2">ORA juiced</b>
-                            <b className="col-span-2">ALGO spent</b>
-                            <b className="col-span-2">ALGO per ORA</b>
-                            {minerList.map(([address, amount, cost], i) => (
-                                <>
-                                    <span className="font-bold text-lg col-span-1 flex justify-center items-center">
-                                        {i + 1}.
-                                    </span>
-                                    <div className="col-span-3 p-2">
-                                        <AccountName account={address as string} />
-                                    </div>
-                                    <div className="flex items-center justify-center col-span-2">
-                                        {formatAmount((amount as number) * (assetData?.minerReward || 0), decimals)}
-                                    </div>
-                                    <div className="flex items-center justify-center col-span-2">
-                                        {formatAmount(cost as number)}
-                                    </div>
-                                    <div className="flex items-center justify-center col-span-2">
-                                        {formatAmount(
-                                            ((isMainnet ? 100 : 1) * (cost as number)) /
-                                                ((amount as number) * (assetData?.minerReward || 0)),
-                                            0,
-                                        )}
-                                    </div>
-                                </>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="opacity-50">Juicers are preparing! Come back soon.</div>
-                    )}
-                </div>
             </div>
         </div>
     );

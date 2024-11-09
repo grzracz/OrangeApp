@@ -60,6 +60,7 @@ type AssetData = {
     minedSupply: number;
     minerReward: number;
     lastMiner: string;
+    lastEffort: number;
 };
 
 type BoxData = {
@@ -75,8 +76,6 @@ type BoxData = {
 type StakingProps = {
     nodeUrl: string;
     nodePort: number;
-    indexerUrl: string;
-    indexerPort: number;
     applicationId: number;
     assetId: number;
     isMainnet?: boolean;
@@ -96,7 +95,7 @@ const decodeBox = (boxData: Uint8Array): BoxData => {
 
 const time = 1707138000;
 
-function Staking({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, assetId, isMainnet }: StakingProps) {
+function Staking({ nodeUrl, nodePort, applicationId, assetId, isMainnet }: StakingProps) {
     const client = new algosdk.Algodv2('', nodeUrl, nodePort);
     const [diff, setDiff] = useState(Math.min(dayjs().diff(dayjs.unix(time)), 1));
 
@@ -111,8 +110,6 @@ function Staking({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, as
     const [depositAmount, setDepositAmount] = useState('');
 
     const actualDeposit = Math.floor(Number.parseFloat(depositAmount) * 10 ** 6);
-
-    const [averageCost, setAverageCost] = useState(0);
 
     const { activeAccount, providers, signTransactions } = useWallet();
 
@@ -208,45 +205,10 @@ function Staking({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, as
         return BigInt(0);
     };
 
-    const updateAverageCost = async (minerReward: number) => {
-        const indexer = new algosdk.Indexer('', indexerUrl, indexerPort);
-        const txs = await indexer
-            .searchForTransactions()
-            .address(algosdk.getApplicationAddress(applicationId))
-            .addressRole('sender')
-            .limit(10)
-            .do();
-        const costs: number[] = [];
-        const miners: Record<string, [number, number]> = {};
-        txs['transactions'].forEach((tx: any) => {
-            try {
-                const address = algosdk.encodeAddress(
-                    // @ts-ignore
-                    Uint8Array.from(Buffer.from(tx['logs'][0], 'base64')).slice(0, 32),
-                );
-                if (address !== 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ') {
-                    const cost = algosdk.decodeUint64(
-                        // @ts-ignore
-                        Uint8Array.from(Buffer.from(tx['logs'][0], 'base64')).slice(32),
-                        'safe',
-                    );
-                    if (miners[address]) {
-                        miners[address][0] += 1;
-                        miners[address][1] += cost;
-                    } else miners[address] = [1, cost];
-                    costs.push(cost);
-                }
-            } catch {}
-        });
-        const average = costs.reduce((a, b) => a + b, 0) / costs.length;
-        setAverageCost(average / (minerReward || 1));
-    };
-
     const updateAssetData = async () => {
         const data = await client.getApplicationByID(applicationId).do();
         const state = data['params']['global-state'];
         const minerReward = keyToValue(state, 'miner_reward');
-        updateAverageCost(minerReward / Math.pow(10, decimals));
         setAssetData({
             block: keyToValue(state, 'block'),
             startTimestamp: keyToValue(state, 'start_timestamp'),
@@ -257,6 +219,7 @@ function Staking({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, as
             minedSupply: keyToValue(state, 'mined_supply'),
             minerReward,
             lastMiner: keyToAddress(state, 'last_miner'),
+            lastEffort: keyToValue(state, 'last_miner_effort'),
         });
     };
 
@@ -471,7 +434,9 @@ function Staking({ nodeUrl, nodePort, indexerPort, indexerUrl, applicationId, as
                         <span className="text-sm opacity-80">Juiced ORA supply</span>
                     </div>
                     <div className="flex flex-col items-center justify-center">
-                        <span className="font-bold heading text-2xl">{formatAmount(averageCost)} ALGO</span>
+                        <span className="font-bold heading text-2xl">
+                            {formatAmount(assetData?.lastEffort || 0)} ALGO
+                        </span>
                         <span className="text-sm opacity-80">Recent effort per ORA</span>
                     </div>
                     <div className="flex flex-col items-center justify-center">
