@@ -20,12 +20,14 @@
         "dayjs": "^1.11.10",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
+        "react-easy-panzoom": "^0.4.4",
         "react-hot-toast": "^2.4.1",
         "react-qr-code": "^2.0.12",
         "react-router-dom": "^6.20.1",
         "use-sound": "^4.0.1"
     },
     "devDependencies": {
+        "@types/node": "^22.9.0",
         "@types/react": "^18.2.37",
         "@types/react-dom": "^18.2.15",
         "@typescript-eslint/eslint-plugin": "^6.10.0",

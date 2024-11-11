@@ -9,9 +9,9 @@ export const TESTNET_NODE_PORT = 443;
 export const MAINNET_APP_INDEX = 1284326447;
 export const MAINNET_ASSET_INDEX = 1284444444;
 
-export const MAINNET_NODE_URL = 'https://us-node.vestigelabs.org';
+export const MAINNET_NODE_URL = 'https://de-node.vestigelabs.org';
 export const MAINNET_NODE_PORT = 443;
 
 export const STAKING_APP_INDEX = 1439234347;
 
-export const CANVAS_APP_INDEX = 2464718196;
+export const CANVAS_APP_INDEX = 2478249799;

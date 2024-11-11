@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import algosdk from 'algosdk';
 import toast from 'react-hot-toast';
-
 import { useWallet } from '@txnlab/use-wallet';
 import { CANVAS_APP_INDEX, MAINNET_ASSET_INDEX, STAKING_APP_INDEX } from 'consts';
 import abi from '../abi/OrangePlace.arc4.json';
+import CanvasComponent from 'components/Canvas';
+import Button from 'components/Button';
+import { Link } from 'react-router-dom';
+import { classNames, formatAmount } from 'utils';
+import orange_icon from '../assets/orange.svg';
 
 type AccountData = {
     balance: number;
@@ -18,7 +22,7 @@ type CanvasProps = {
     nodePort: number;
 };
 
-const getColor = (value: number) => {
+export const getColor = (value: number) => {
     if (value === 0) return `rgb(255, 255, 255)`;
     if (value === 255) return 'rgb(0, 0, 0)';
 
@@ -49,6 +53,8 @@ const getColor = (value: number) => {
     return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
 };
 
+let websocket: any;
+
 function Canvas({ nodeUrl, nodePort }: CanvasProps) {
     const client = new algosdk.Algodv2('', nodeUrl, nodePort);
     const canvas = useRef<HTMLCanvasElement>(null);
@@ -57,13 +63,94 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
     const [accountData, setAccountData] = useState<AccountData>({ balance: 0, assetBalance: 0 });
     const [bufferAmount, setBufferAmount] = useState(1000);
     const canvasContract = new algosdk.ABIContract(abi);
-    const [pixelsToUpdate, setPixelsToUpdate] = useState<
-        { quadrant: Uint8Array; x: number; y: number; color: number }[]
-    >([]);
+    const [selectedPixel, setSelectedPixel] = useState<{ x: number; y: number } | null>(null);
+    const [selectedColor, setSelectedColor] = useState<number>(0);
+    const [canvasData, setCanvasData] = useState<{ [key: string]: number[] }>({});
+    const [screenSize, setScreenSize] = useState([1000, 1000]);
+    const [websocketOpen, setWebsocketOpen] = useState(false);
+
+    useEffect(() => {
+        if (websocketOpen) {
+            fetchBoxData();
+        }
+    }, [websocketOpen]);
+
+    const connectWebsocket = () => {
+        let reconnectAttempt = 0;
+        const maxReconnectDelay = 30000;
+
+        const connect = () => {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                return;
+            }
+
+            const ws = new WebSocket(`wss://indexer.vestige.fi/ws/network/0/canvas`);
+
+            ws.onopen = () => {
+                setWebsocketOpen(true);
+                reconnectAttempt = 0;
+            };
+
+            ws.onclose = () => {
+                setWebsocketOpen(false);
+
+                const delay = Math.min(1000 * Math.pow(2, reconnectAttempt), maxReconnectDelay);
+                reconnectAttempt++;
+
+                setTimeout(() => {
+                    connect();
+                }, delay);
+            };
+
+            ws.onerror = () => {
+                if (ws) ws.close();
+            };
+
+            ws.onmessage = (m) => {
+                try {
+                    const message = JSON.parse(m.data);
+                    const type = message.type;
+                    const data = message.data;
+                    switch (type) {
+                        case 'update':
+                            console.log(data);
+                            const quadrant = new Uint8Array(data.quadrant);
+                            const x = data.x;
+                            const y = data.y;
+                            const color = data.color;
+                            setCanvasData((prev) => {
+                                const newData = { ...prev };
+                                const key = Buffer.from(quadrant).toString('base64');
+                                newData[key] = [...newData[key]];
+                                newData[key][y * 90 + x] = color;
+                                return newData;
+                            });
+                            break;
+                        default:
+                            console.info(`Websocket message: ${message}`);
+                            break;
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            };
+
+            websocket = ws;
+        };
+
+        connect();
+    };
+
+    useLayoutEffect(() => {
+        const updateSize = () => {
+            setScreenSize([window.innerWidth, window.innerHeight]);
+        };
+        window.addEventListener('resize', updateSize);
+        updateSize();
+        return () => window.removeEventListener('resize', updateSize);
+    }, []);
 
     const { activeAccount, providers, signTransactions, signer } = useWallet();
-
-    // add zoom https://codesandbox.io/p/sandbox/react-typescript-zoom-pan-html-canvas-p3itj?file=%2Fsrc%2FCanvas.tsx
 
     const keyToValue = (state: any, key: string): number => {
         const bKey = btoa(key);
@@ -80,8 +167,21 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
         setCost(keyToValue(state, 'cost'));
     };
 
+    const fetchBox = async (name: Uint8Array) => {
+        const data = await client.getApplicationBoxByName(CANVAS_APP_INDEX, name).do();
+        setCanvasData((prev) => ({ ...prev, [Buffer.from(name).toString('base64')]: Array.from(data.value) }));
+        return Array.from(data.value);
+    };
+
     const fetchBoxData = async () => {
-        // get each box
+        const promises = [];
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                const name = new Uint8Array([i, j]);
+                promises.push(fetchBox(name));
+            }
+        }
+        Promise.all(promises);
     };
 
     const updateAccountData = async (address: string) => {
@@ -95,10 +195,14 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
     };
 
     useEffect(() => {
+        connectWebsocket();
         fetchCost();
-        fetchBoxData();
+
         const interval = setInterval(fetchCost, 10000);
-        return () => clearInterval(interval);
+
+        return () => {
+            clearInterval(interval);
+        };
     }, []);
 
     useEffect(() => {
@@ -123,7 +227,7 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
                                 .do()
                                 .catch(reject)
                                 .then(({ txId }) => {
-                                    algosdk.waitForConfirmation(client, txId, 5).catch(reject).then(resolve);
+                                    algosdk.waitForConfirmation(client, txId, 15).catch(reject).then(resolve);
                                 });
                         else reject('Failed to sign transactions.');
                     });
@@ -136,52 +240,171 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
         );
     };
 
-    const updatePixels = async () => {
+    const updatePixel = async () => {
         if (activeAccount?.address) {
             try {
                 const atc = new algosdk.AtomicTransactionComposer();
                 const suggestedParams = await client.getTransactionParams().do();
-                pixelsToUpdate.forEach((pixel) => {
-                    atc.addTransaction({
-                        txn: algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
-                            from: activeAccount.address,
-                            to: algosdk.getApplicationAddress(CANVAS_APP_INDEX),
-                            amount: cost + bufferAmount,
-                            assetIndex: MAINNET_ASSET_INDEX,
-                            suggestedParams,
-                        }),
-                        signer,
-                    });
-                    atc.addMethodCall({
-                        appID: STAKING_APP_INDEX,
-                        method: canvasContract.getMethodByName('updatePixel'),
-                        sender: activeAccount.address,
-                        boxes: new Array(8).fill({
-                            appIndex: CANVAS_APP_INDEX,
-                            name: pixel.quadrant,
-                        }),
-                        methodArgs: [pixel.x, pixel.y, pixel.color],
-                        signer,
+                suggestedParams.flatFee = true;
+                suggestedParams.fee = 3000;
+                atc.addTransaction({
+                    txn: algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+                        from: activeAccount.address,
+                        to: algosdk.getApplicationAddress(CANVAS_APP_INDEX),
+                        amount: cost + bufferAmount,
+                        assetIndex: MAINNET_ASSET_INDEX,
                         suggestedParams,
-                    });
+                    }),
+                    signer,
+                });
+                const quadrant = new Uint8Array([Math.floor(selectedPixel!.y / 90), Math.floor(selectedPixel!.x / 90)]);
+                const x = selectedPixel!.x % 90;
+                const y = selectedPixel!.y % 90;
+                suggestedParams.fee = 0;
+                atc.addMethodCall({
+                    appID: CANVAS_APP_INDEX,
+                    method: canvasContract.getMethodByName('updatePixel'),
+                    sender: activeAccount.address,
+                    boxes: new Array(8).fill({
+                        appIndex: CANVAS_APP_INDEX,
+                        name: quadrant,
+                    }),
+                    methodArgs: [quadrant, x, y, selectedColor],
+                    signer,
+                    suggestedParams,
                 });
                 atc.buildGroup();
                 // @ts-ignore
                 const transactions = atc.transactions.map((tx) => algosdk.encodeUnsignedTransaction(tx.txn));
-                signAndSendTransactions(transactions).then(() => updateAccountData(activeAccount?.address || ''));
+                signAndSendTransactions(transactions).then(() => {
+                    updateAccountData(activeAccount?.address || '');
+                    setCanvasData((prev) => {
+                        const newData = { ...prev };
+                        const key = Buffer.from(quadrant).toString('base64');
+                        newData[key] = [...newData[key]];
+                        newData[key][y * 90 + x] = selectedColor;
+                        return newData;
+                    });
+                    setSelectedPixel(null);
+                });
             } catch (e: any) {
                 toast.error(e?.toString());
             }
         }
     };
 
+    const nearbyColors = useMemo(() => {
+        // get colors in nearby positions to selected pixel
+        const colors: Record<number, number> = {};
+        if (selectedPixel) {
+            const { x, y } = selectedPixel;
+            const searchSquareWidth = 10;
+            const searchSquareX = Math.min(269 - searchSquareWidth, Math.max(0, x - searchSquareWidth / 2));
+            const searchSquareY = Math.min(269 - searchSquareWidth, Math.max(0, y - searchSquareWidth / 2));
+            for (let i = searchSquareY; i < searchSquareY + searchSquareWidth; i++) {
+                for (let j = searchSquareX; j < searchSquareX + searchSquareWidth; j++) {
+                    const quadrant = Buffer.from([Math.floor(i / 90), Math.floor(j / 90)]);
+                    if (!canvasData[quadrant.toString('base64')]) continue;
+                    const quadrantY = i % 90;
+                    const quadrantX = j % 90;
+                    const color = canvasData[Buffer.from(quadrant).toString('base64')][quadrantY * 90 + quadrantX];
+                    if (!colors[color]) colors[color] = 0;
+                    colors[color]++;
+                }
+            }
+        }
+        const sortedColors = Object.entries(colors).sort((a, b) => b[1] - a[1]);
+        return sortedColors.map((color) => parseInt(color[0])).slice(0, 5);
+    }, [selectedPixel, canvasData]);
+
+    const formatJohnsToOra = (johns: number) => {
+        const oraPerJohn = 0.00000001;
+        return (oraPerJohn * johns).toFixed(8);
+    };
+
     return (
-        <>
-            <canvas ref={canvas} className="absolute bg-white w-full h-full top-0 bottom-0 left-0 right-0"></canvas>;
-            <div className="absolute bottom-0 right-0 p-4">
-                <div className="bg-orange-400 p-4 rounded">test</div>
+        <div className="absolute flex justify-center items-center w-full h-full overflow-hidden">
+            <CanvasComponent
+                canvasWidth={screenSize[0]}
+                canvasHeight={screenSize[1]}
+                canvasData={canvasData}
+                selectedColor={selectedColor}
+                selectedPixel={selectedPixel}
+                setSelectedPixel={setSelectedPixel}
+            />
+            <div className="absolute top-0 left-0 p-8">
+                <Link to="/" className="pointer-events-auto hover:opacity-80 transition-all">
+                    <img src={orange_icon} className={classNames('w-16 md:w-20 lg:w-24 h-full z-20')} />
+                </Link>
             </div>
-        </>
+            <div className="absolute bottom-0 right-0 p-8">
+                <div className="bg-orange-400 p-4 rounded flex flex-col space-y-2 justify-center items-center">
+                    <div className="grid grid-cols-16 border border-black">
+                        {new Array(256).fill(0).map((_, i) => (
+                            <button
+                                key={`color-${i}`}
+                                style={{
+                                    backgroundColor: getColor(i),
+                                    width: 16,
+                                    height: 16,
+                                    borderWidth: selectedColor === i ? 1 : 0,
+                                    borderColor: i === 255 ? 'white' : 'black',
+                                }}
+                                onClick={() => setSelectedColor(i)}
+                            />
+                        ))}
+                    </div>
+                    {nearbyColors.length > 0 && (
+                        <div className="flex justify-center space-x-2  items-center">
+                            <span className="font-bold">Nearby colors:</span>
+                            <div className="flex justify-center items-center border border-black">
+                                {nearbyColors.map((color) => (
+                                    <button
+                                        key={`nearby-color-${color}`}
+                                        style={{
+                                            backgroundColor: getColor(color),
+                                            width: 16,
+                                            height: 16,
+                                            borderWidth: selectedColor === color ? 1 : 0,
+                                            borderColor: color === 255 ? 'white' : 'black',
+                                        }}
+                                        onClick={() => setSelectedColor(color)}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    <div className="text-center">
+                        <span className="font-bold">Cost per pixel:</span> {cost}{' '}
+                        <span className="font-semibold opacity-80">JOHNs</span> <br />
+                        <span className="text-sm font-bold opacity-60">
+                            {cost} JOHNs = {formatJohnsToOra(cost)} ORA
+                        </span>
+                    </div>
+                    {activeAccount?.address ? (
+                        <div className="flex space-x-2 items-center justify-center">
+                            <Button onClick={() => providers?.forEach((p) => p.disconnect())} secondary>
+                                Disconnect
+                            </Button>
+                            <Button disabled={!selectedPixel} onClick={updatePixel}>
+                                Draw pixel
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="max-w-sm flex flex-col text-center gap-2 items-center">
+                            {providers?.map((p) => (
+                                <Button onClick={p.connect} key={`connect-${p.metadata.id}`}>
+                                    <div className="flex space-x-2 items-center">
+                                        <img className="w-8 h-8 rounded" src={p.metadata.icon} />
+                                        <span>Connect {p.metadata.name}</span>{' '}
+                                    </div>
+                                </Button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
     );
 }
 
