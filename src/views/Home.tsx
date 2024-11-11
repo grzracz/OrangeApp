@@ -2,8 +2,20 @@ import john from '../assets/jaw.png';
 import orange from '../assets/orangeicon.svg';
 import { Link } from 'react-router-dom';
 import Button from '../components/Button';
+import Timer from 'components/Timer';
+import { useEffect, useState } from 'react';
+import dayjs from 'dayjs';
 
 function Home() {
+    const [diff, setDiff] = useState(0);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDiff(Math.min(dayjs().diff(dayjs.unix(1731693600)), 1));
+        }, 33);
+        return () => clearInterval(interval);
+    }, []);
+
     return (
         <>
             <div className="opacity-20 p-2 absolute w-full text-center text-xs select-none pointer-events-none">
@@ -45,6 +57,8 @@ function Home() {
                             <Button>MainNet</Button>
                         </Link>
                     </div>
+                    <h2 className="font-bold">Become part of something bigger!</h2>
+                    <Timer diff={diff} />
                 </div>
                 {/* <span className="text-sm opacity-80 text-gray-500">
                     You can withdraw from the old mainnet juicer{' '}
