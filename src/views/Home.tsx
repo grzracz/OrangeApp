@@ -48,7 +48,7 @@ function Home() {
                     <h2 className="font-bold">Become part of something bigger!</h2>
                     <div>
                         <Link to="canvas" className="py-6">
-                            <Button>Canvas</Button>
+                            <Button>The Orange Place</Button>
                         </Link>
                     </div>
                 </div>

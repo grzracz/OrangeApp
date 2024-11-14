@@ -293,6 +293,7 @@ export default function Canvas(props: CanvasProps) {
             style={{
                 width: `${props.canvasWidth}px`,
                 height: `${props.canvasHeight}px`,
+                imageRendering: 'pixelated',
             }}
         ></canvas>
     );

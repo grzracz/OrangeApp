@@ -68,6 +68,7 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
     const [canvasData, setCanvasData] = useState<{ [key: string]: number[] }>({});
     const [screenSize, setScreenSize] = useState([1000, 1000]);
     const [websocketOpen, setWebsocketOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (websocketOpen) {
@@ -81,6 +82,7 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
 
         const connect = () => {
             if (websocket && websocket.readyState === WebSocket.OPEN) {
+                setWebsocketOpen(true);
                 return;
             }
 
@@ -243,6 +245,7 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
     const updatePixel = async () => {
         if (activeAccount?.address) {
             try {
+                setLoading(true);
                 const atc = new algosdk.AtomicTransactionComposer();
                 const suggestedParams = await client.getTransactionParams().do();
                 suggestedParams.flatFee = true;
@@ -286,9 +289,11 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
                         return newData;
                     });
                     setSelectedPixel(null);
+                    setLoading(false);
                 });
             } catch (e: any) {
                 toast.error(e?.toString());
+                setLoading(false);
             }
         }
     };
@@ -301,8 +306,9 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
             const searchSquareWidth = 10;
             const searchSquareX = Math.min(269 - searchSquareWidth, Math.max(0, x - searchSquareWidth / 2));
             const searchSquareY = Math.min(269 - searchSquareWidth, Math.max(0, y - searchSquareWidth / 2));
-            for (let i = searchSquareY; i < searchSquareY + searchSquareWidth; i++) {
-                for (let j = searchSquareX; j < searchSquareX + searchSquareWidth; j++) {
+            console.log(x, y, searchSquareX, searchSquareY);
+            for (let i = searchSquareY; i < searchSquareY + searchSquareWidth + 1; i++) {
+                for (let j = searchSquareX; j < searchSquareX + searchSquareWidth + 1; j++) {
                     const quadrant = Buffer.from([Math.floor(i / 90), Math.floor(j / 90)]);
                     if (!canvasData[quadrant.toString('base64')]) continue;
                     const quadrantY = i % 90;
@@ -323,88 +329,119 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
     };
 
     return (
-        <div className="absolute flex justify-center items-center w-full h-full overflow-hidden">
-            <CanvasComponent
-                canvasWidth={screenSize[0]}
-                canvasHeight={screenSize[1]}
-                canvasData={canvasData}
-                selectedColor={selectedColor}
-                selectedPixel={selectedPixel}
-                setSelectedPixel={setSelectedPixel}
-            />
-            <div className="absolute top-0 left-0 p-8">
+        <>
+            <div className="absolute top-0 left-0 p-8 z-20">
                 <Link to="/" className="pointer-events-auto hover:opacity-80 transition-all">
                     <img src={orange_icon} className={classNames('w-16 md:w-20 lg:w-24 h-full z-20')} />
                 </Link>
             </div>
-            <div className="absolute bottom-0 right-0 p-8">
-                <div className="bg-orange-400 p-4 rounded flex flex-col space-y-2 justify-center items-center">
-                    <div className="grid grid-cols-16 border border-black">
-                        {new Array(256).fill(0).map((_, i) => (
-                            <button
-                                key={`color-${i}`}
-                                style={{
-                                    backgroundColor: getColor(i),
-                                    width: 16,
-                                    height: 16,
-                                    borderWidth: selectedColor === i ? 1 : 0,
-                                    borderColor: i === 255 ? 'white' : 'black',
-                                }}
-                                onClick={() => setSelectedColor(i)}
-                            />
-                        ))}
-                    </div>
-                    {nearbyColors.length > 0 && (
-                        <div className="flex justify-center space-x-2  items-center">
-                            <span className="font-bold">Nearby colors:</span>
-                            <div className="flex justify-center items-center border border-black">
-                                {nearbyColors.map((color) => (
-                                    <button
-                                        key={`nearby-color-${color}`}
-                                        style={{
-                                            backgroundColor: getColor(color),
-                                            width: 16,
-                                            height: 16,
-                                            borderWidth: selectedColor === color ? 1 : 0,
-                                            borderColor: color === 255 ? 'white' : 'black',
-                                        }}
-                                        onClick={() => setSelectedColor(color)}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    <div className="text-center">
-                        <span className="font-bold">Cost per pixel:</span> {cost}{' '}
-                        <span className="font-semibold opacity-80">JOHNs</span> <br />
-                        <span className="text-sm font-bold opacity-60">
-                            {cost} JOHNs = {formatJohnsToOra(cost)} ORA
-                        </span>
-                    </div>
-                    {activeAccount?.address ? (
-                        <div className="flex space-x-2 items-center justify-center">
-                            <Button onClick={() => providers?.forEach((p) => p.disconnect())} secondary>
-                                Disconnect
-                            </Button>
-                            <Button disabled={!selectedPixel} onClick={updatePixel}>
-                                Draw pixel
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className="max-w-sm flex flex-col text-center gap-2 items-center">
-                            {providers?.map((p) => (
-                                <Button onClick={p.connect} key={`connect-${p.metadata.id}`}>
-                                    <div className="flex space-x-2 items-center">
-                                        <img className="w-8 h-8 rounded" src={p.metadata.icon} />
-                                        <span>Connect {p.metadata.name}</span>{' '}
-                                    </div>
+            <div className="absolute flex flex-col justify-center items-center w-full h-full overflow-hidden hidden md:block">
+                <CanvasComponent
+                    canvasWidth={screenSize[0]}
+                    canvasHeight={screenSize[1]}
+                    canvasData={canvasData}
+                    selectedColor={selectedColor}
+                    selectedPixel={selectedPixel}
+                    setSelectedPixel={setSelectedPixel}
+                />
+                <div className="absolute justify-center items-center top-0 bottom-0 right-0 p-8 hidden md:flex">
+                    <div className="bg-orange-400 p-4 rounded flex flex-col space-y-2 justify-center items-center">
+                        {activeAccount?.address && (
+                            <div className="flex justify-center space-x-2 items-center">
+                                <Button
+                                    onClick={() => providers?.forEach((p) => p.disconnect())}
+                                    secondary
+                                    className="text-sm"
+                                >
+                                    Disconnect
                                 </Button>
+                                <a href="https://vestige.fi/asset/1284444444" target="_blank" rel="noreferrer">
+                                    <Button className="text-sm">Buy ORA</Button>
+                                </a>
+                            </div>
+                        )}
+                        <div className="grid grid-cols-16 border-2 rounded border-orange-900">
+                            {new Array(256).fill(0).map((_, i) => (
+                                <button
+                                    key={`color-${i}`}
+                                    style={{
+                                        backgroundColor: getColor(i),
+                                        width: 16,
+                                        height: 16,
+                                        borderWidth: selectedColor === i ? 1 : 0,
+                                        borderColor: i === 255 ? 'white' : 'black',
+                                    }}
+                                    onClick={() => setSelectedColor(i)}
+                                />
                             ))}
                         </div>
-                    )}
+                        {nearbyColors.length > 0 && (
+                            <div className="flex justify-center space-x-2  items-center">
+                                <span className="font-bold">Nearby colors:</span>
+                                <div className="flex justify-center items-center border-2 rounded border-orange-900">
+                                    {nearbyColors.map((color) => (
+                                        <button
+                                            key={`nearby-color-${color}`}
+                                            style={{
+                                                backgroundColor: getColor(color),
+                                                width: 16,
+                                                height: 16,
+                                                borderWidth: selectedColor === color ? 1 : 0,
+                                                borderColor: color === 255 ? 'white' : 'black',
+                                            }}
+                                            onClick={() => setSelectedColor(color)}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        <div className="text-center font-bold">
+                            {!!activeAccount && (
+                                <div>
+                                    You have {formatAmount(accountData.assetBalance, 0)}{' '}
+                                    <span className="font-semibold opacity-80">johns</span>
+                                </div>
+                            )}
+                            <span>Cost per pixel:</span> {cost} <span className="font-semibold opacity-80">johns</span>{' '}
+                            <br />
+                            <span className="text-sm opacity-60">
+                                {cost} johns = {formatJohnsToOra(cost)} ORA
+                            </span>
+                        </div>
+                        {activeAccount?.address ? (
+                            <div className="flex flex-col space-y-2 items-center justify-center">
+                                <Button
+                                    disabled={
+                                        loading || !selectedPixel || cost + bufferAmount > accountData.assetBalance
+                                    }
+                                    onClick={updatePixel}
+                                >
+                                    Draw pixel
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="max-w-sm flex flex-col text-center gap-2 items-center">
+                                {providers?.map((p) => (
+                                    <Button onClick={p.connect} key={`connect-${p.metadata.id}`}>
+                                        <div className="flex space-x-2 items-center">
+                                            <img className="w-8 h-8 rounded" src={p.metadata.icon} />
+                                            <span>Connect {p.metadata.name}</span>{' '}
+                                        </div>
+                                    </Button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
+            <div className="md:hidden text-sm flex justify-center items-center w-screen h-screen">
+                <div className="w-80 bg-white border rounded-lg p-4 text-center font-bold">
+                    This page does not work on mobile.
+                    <br />
+                    Please join us on desktop.
+                </div>
+            </div>
+        </>
     );
 }
 

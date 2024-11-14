@@ -183,7 +183,7 @@ function Mining({ nodeUrl, nodePort, applicationId, assetId, isMainnet }: Mining
     }, []);
 
     useEffect(() => {
-        let interval = 0;
+        let interval: any = 0;
         if (address) {
             updateMinerData(address);
             interval = setInterval(() => updateMinerData(address), 5000);
@@ -378,7 +378,7 @@ function Mining({ nodeUrl, nodePort, applicationId, assetId, isMainnet }: Mining
     const diffSeconds = diff - (diff % 1000);
 
     useEffect(() => {
-        let interval = 0;
+        let interval: any = 0;
         if (mining && diffSeconds < 0) {
             toast.loading(`Juicing will start in ${Math.abs(diffSeconds / 1000)} seconds!`, { duration: 1000 });
         } else if (mining && activeAccount && assetData && assetData.lastMiner) {
