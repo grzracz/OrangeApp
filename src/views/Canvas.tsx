@@ -344,7 +344,17 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
                     selectedPixel={selectedPixel}
                     setSelectedPixel={setSelectedPixel}
                 />
-                <div className="absolute justify-center items-center top-0 bottom-0 right-0 p-8 hidden md:flex">
+
+                <div className="absolute justify-center items-center flex-col top-0 bottom-0 right-0 p-8 hidden md:flex">
+                    <button
+                        className={classNames(
+                            'text-sm opacity-60 font-bold p-2',
+                            websocketOpen ? 'text-green-600' : 'text-red-600',
+                        )}
+                        onClick={connectWebsocket}
+                    >
+                        {websocketOpen ? 'Canvas updates automatically' : 'Disconnected from live updates'}
+                    </button>
                     <div className="bg-orange-400 p-4 rounded flex flex-col space-y-2 justify-center items-center">
                         {activeAccount?.address && (
                             <div className="flex justify-center space-x-2 items-center">

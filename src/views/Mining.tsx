@@ -404,7 +404,7 @@ function Mining({ nodeUrl, nodePort, applicationId, assetId, isMainnet }: Mining
     const miningHours = Math.floor(miningSecondsLeft / 3600);
     const miningMinutes = Math.floor((miningSecondsLeft % 3600) / 60);
 
-    const halvingDenominator = 2 ^ (assetData?.halving || 0);
+    const halvingDenominator = 2 ** (1 + (assetData?.halving || 0));
     const totalHalvingSupply = totalSupply / halvingDenominator;
 
     const removeJuicerData = async () => {

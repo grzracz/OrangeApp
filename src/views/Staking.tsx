@@ -273,7 +273,7 @@ function Staking({ nodeUrl, nodePort, applicationId, assetId, isMainnet }: Staki
         );
     };
 
-    const halvingDenominator = 2 ^ (assetData?.halving || 0);
+    const halvingDenominator = 2 ** (1 + (assetData?.halving || 0));
     const totalHalvingSupply = totalSupply / halvingDenominator;
 
     const tokensToRewards = (amount: number): [number, number] => {
