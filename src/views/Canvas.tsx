@@ -200,7 +200,7 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
         connectWebsocket();
         fetchCost();
 
-        const interval = setInterval(fetchCost, 10000);
+        const interval = setInterval(fetchCost, 15000);
 
         return () => {
             clearInterval(interval);
@@ -210,7 +210,7 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
     useEffect(() => {
         if (activeAccount?.address) {
             updateAccountData(activeAccount.address);
-            const interval = setInterval(() => updateAccountData(activeAccount.address), 10000);
+            const interval = setInterval(() => updateAccountData(activeAccount.address), 15000);
             return () => clearInterval(interval);
         } else {
             setAccountData({ assetBalance: 0, assetOptedIn: false, balance: 0 });

@@ -104,7 +104,11 @@ function Home() {
                         !
                     </div>
                 </div>
-                <div className="pt-16 opacity-50 text-xs">There is nothing here, go juice</div>
+                <div className="pt-16 opacity-50 text-center text-xs">
+                    Powered by nodely.io
+                    <br />
+                    There is nothing here, go juice
+                </div>
             </div>
         </>
     );
