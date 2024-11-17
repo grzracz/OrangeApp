@@ -58,7 +58,11 @@ function Home() {
                         </Link>
                     </div>
                     <h2 className="font-bold">Become part of something bigger!</h2>
-                    <Timer diff={diff} />
+                    <div>
+                        <Link to="canvas" className="py-6">
+                            <Button>The Orange Place</Button>
+                        </Link>
+                    </div>
                 </div>
                 {/* <span className="text-sm opacity-80 text-gray-500">
                     You can withdraw from the old mainnet juicer{' '}
@@ -112,7 +116,11 @@ function Home() {
                         !
                     </div>
                 </div>
-                <div className="pt-16 opacity-50 text-xs">There is nothing here, go juice</div>
+                <div className="pt-16 opacity-50 text-center text-xs">
+                    Powered by nodely.io
+                    <br />
+                    There is nothing here, go juice
+                </div>
             </div>
         </>
     );

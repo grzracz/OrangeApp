@@ -10,18 +10,15 @@ import algosdk from 'algosdk';
 import {
     MAINNET_APP_INDEX,
     MAINNET_ASSET_INDEX,
-    MAINNET_INDEXER_PORT,
-    MAINNET_INDEXER_URL,
     MAINNET_NODE_PORT,
     MAINNET_NODE_URL,
     TESTNET_APP_INDEX,
     TESTNET_ASSET_INDEX,
-    TESTNET_INDEXER_PORT,
-    TESTNET_INDEXER_URL,
     TESTNET_NODE_PORT,
     TESTNET_NODE_URL,
 } from 'consts';
 import Staking from 'views/Staking';
+import Canvas from 'views/Canvas';
 
 function App() {
     const providers = useInitializeProviders({
@@ -45,8 +42,6 @@ function App() {
                             <Mining
                                 nodeUrl={TESTNET_NODE_URL}
                                 nodePort={TESTNET_NODE_PORT}
-                                indexerUrl={TESTNET_INDEXER_URL}
-                                indexerPort={TESTNET_INDEXER_PORT}
                                 applicationId={TESTNET_APP_INDEX}
                                 assetId={TESTNET_ASSET_INDEX}
                             />
@@ -58,14 +53,13 @@ function App() {
                             <Staking
                                 nodeUrl={MAINNET_NODE_URL}
                                 nodePort={MAINNET_NODE_PORT}
-                                indexerUrl={MAINNET_INDEXER_URL}
-                                indexerPort={MAINNET_INDEXER_PORT}
                                 applicationId={MAINNET_APP_INDEX}
                                 assetId={MAINNET_ASSET_INDEX}
                                 isMainnet
                             />
                         }
                     />
+                    <Route path="canvas" element={<Canvas nodeUrl={MAINNET_NODE_URL} nodePort={MAINNET_NODE_PORT} />} />
                     {/* <Route
                         path="mainnet-old"
                         element={
@@ -82,7 +76,6 @@ function App() {
                     /> */}
                 </Routes>
             </HashRouter>
-            <span className="p-2 lg:absolute bottom-0 left-0 text-sm opacity-20">Powered by Nodely.io</span>
         </WalletProvider>
     );
 }

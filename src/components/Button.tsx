@@ -5,9 +5,10 @@ type ButtonProps = {
     onClick?: () => void;
     disabled?: boolean;
     secondary?: boolean;
+    className?: string;
 };
 
-function Button({ children, onClick, disabled, secondary }: ButtonProps) {
+function Button({ children, onClick, disabled, secondary, className }: ButtonProps) {
     return (
         <button
             onClick={onClick}
@@ -19,6 +20,7 @@ function Button({ children, onClick, disabled, secondary }: ButtonProps) {
                     : secondary
                     ? 'bg-red-400 hover:bg-red-500'
                     : 'bg-yellow-400 hover:bg-yellow-500',
+                className,
             )}
         >
             {children}
