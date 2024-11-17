@@ -10,6 +10,7 @@ import Button from 'components/Button';
 import { Link } from 'react-router-dom';
 import { classNames, formatAmount } from 'utils';
 import orange_icon from '../assets/orange.svg';
+import { FaTrash } from 'react-icons/fa';
 
 type AccountData = {
     balance: number;
@@ -61,7 +62,7 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
 
     const [cost, setCost] = useState(0);
     const [accountData, setAccountData] = useState<AccountData>({ balance: 0, assetBalance: 0 });
-    const [bufferAmount, setBufferAmount] = useState(1000);
+    const [bufferAmount, setBufferAmount] = useState(50);
     const canvasContract = new algosdk.ABIContract(abi);
     const [selectedPixel, setSelectedPixel] = useState<{ x: number; y: number } | null>(null);
     const [selectedColor, setSelectedColor] = useState<number>(0);
@@ -69,6 +70,7 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
     const [screenSize, setScreenSize] = useState([1000, 1000]);
     const [websocketOpen, setWebsocketOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [pixelsToDraw, setPixelsToDraw] = useState<{ x: number; y: number; color: number }[]>([]);
 
     useEffect(() => {
         if (websocketOpen) {
@@ -115,7 +117,6 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
                     const data = message.data;
                     switch (type) {
                         case 'update':
-                            console.log(data);
                             const quadrant = new Uint8Array(data.quadrant);
                             const x = data.x;
                             const y = data.y;
@@ -229,9 +230,18 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
                                 .do()
                                 .catch(reject)
                                 .then(({ txId }) => {
-                                    algosdk.waitForConfirmation(client, txId, 15).catch(reject).then(resolve);
+                                    algosdk
+                                        .waitForConfirmation(client, txId, 15)
+                                        .catch((e) => {
+                                            setLoading(false);
+                                            reject(e);
+                                        })
+                                        .then(resolve);
                                 });
-                        else reject('Failed to sign transactions.');
+                        else {
+                            setLoading(false);
+                            reject('Failed to sign transactions.');
+                        }
                     });
             }),
             {
@@ -249,32 +259,34 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
                 const atc = new algosdk.AtomicTransactionComposer();
                 const suggestedParams = await client.getTransactionParams().do();
                 suggestedParams.flatFee = true;
-                suggestedParams.fee = 3000;
-                atc.addTransaction({
-                    txn: algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
-                        from: activeAccount.address,
-                        to: algosdk.getApplicationAddress(CANVAS_APP_INDEX),
-                        amount: cost + bufferAmount,
-                        assetIndex: MAINNET_ASSET_INDEX,
+                pixelsToDraw.forEach((pixel, index) => {
+                    suggestedParams.fee = 3000;
+                    atc.addTransaction({
+                        txn: algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+                            from: activeAccount.address,
+                            to: algosdk.getApplicationAddress(CANVAS_APP_INDEX),
+                            amount: cost + bufferAmount + index,
+                            assetIndex: MAINNET_ASSET_INDEX,
+                            suggestedParams,
+                        }),
+                        signer,
+                    });
+                    const quadrant = new Uint8Array([Math.floor(pixel!.y / 90), Math.floor(pixel!.x / 90)]);
+                    const x = pixel!.x % 90;
+                    const y = pixel!.y % 90;
+                    suggestedParams.fee = 0;
+                    atc.addMethodCall({
+                        appID: CANVAS_APP_INDEX,
+                        method: canvasContract.getMethodByName('updatePixel'),
+                        sender: activeAccount.address,
+                        boxes: new Array(8).fill({
+                            appIndex: CANVAS_APP_INDEX,
+                            name: quadrant,
+                        }),
+                        methodArgs: [quadrant, x, y, pixel!.color],
+                        signer,
                         suggestedParams,
-                    }),
-                    signer,
-                });
-                const quadrant = new Uint8Array([Math.floor(selectedPixel!.y / 90), Math.floor(selectedPixel!.x / 90)]);
-                const x = selectedPixel!.x % 90;
-                const y = selectedPixel!.y % 90;
-                suggestedParams.fee = 0;
-                atc.addMethodCall({
-                    appID: CANVAS_APP_INDEX,
-                    method: canvasContract.getMethodByName('updatePixel'),
-                    sender: activeAccount.address,
-                    boxes: new Array(8).fill({
-                        appIndex: CANVAS_APP_INDEX,
-                        name: quadrant,
-                    }),
-                    methodArgs: [quadrant, x, y, selectedColor],
-                    signer,
-                    suggestedParams,
+                    });
                 });
                 atc.buildGroup();
                 // @ts-ignore
@@ -283,11 +295,17 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
                     updateAccountData(activeAccount?.address || '');
                     setCanvasData((prev) => {
                         const newData = { ...prev };
-                        const key = Buffer.from(quadrant).toString('base64');
-                        newData[key] = [...newData[key]];
-                        newData[key][y * 90 + x] = selectedColor;
+                        pixelsToDraw.forEach((pixel) => {
+                            const quadrant = new Uint8Array([Math.floor(pixel.y / 90), Math.floor(pixel.x / 90)]);
+                            const x = pixel.x % 90;
+                            const y = pixel.y % 90;
+                            const key = Buffer.from(quadrant).toString('base64');
+                            newData[key] = [...newData[key]];
+                            newData[key][y * 90 + x] = pixel.color;
+                        });
                         return newData;
                     });
+                    setPixelsToDraw([]);
                     setSelectedPixel(null);
                     setLoading(false);
                 });
@@ -306,7 +324,6 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
             const searchSquareWidth = 10;
             const searchSquareX = Math.min(269 - searchSquareWidth, Math.max(0, x - searchSquareWidth / 2));
             const searchSquareY = Math.min(269 - searchSquareWidth, Math.max(0, y - searchSquareWidth / 2));
-            console.log(x, y, searchSquareX, searchSquareY);
             for (let i = searchSquareY; i < searchSquareY + searchSquareWidth + 1; i++) {
                 for (let j = searchSquareX; j < searchSquareX + searchSquareWidth + 1; j++) {
                     const quadrant = Buffer.from([Math.floor(i / 90), Math.floor(j / 90)]);
@@ -328,6 +345,45 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
         return (oraPerJohn * johns).toFixed(8);
     };
 
+    const addOrUpdatePixel = (pixelData: { x: number; y: number }, color: number) => {
+        setPixelsToDraw((prevPixels) => {
+            const quadrant = new Uint8Array([Math.floor(pixelData.y / 90), Math.floor(pixelData!.x / 90)]);
+            const x = pixelData!.x % 90;
+            const y = pixelData!.y % 90;
+            const key = Buffer.from(quadrant).toString('base64');
+            if (!canvasData[key]) return prevPixels;
+            if (canvasData[key][y * 90 + x] === color)
+                return [...prevPixels.filter((pixel) => pixel.x !== pixelData.x || pixel.y !== pixelData.y)];
+            const existingPixelIndex = prevPixels.findIndex(
+                (pixel) => pixel.x === pixelData.x && pixel.y === pixelData.y,
+            );
+            const newPixels = [...prevPixels];
+            if (existingPixelIndex !== -1) {
+                newPixels[existingPixelIndex] = { ...newPixels[existingPixelIndex], color };
+            } else {
+                newPixels.push({ ...pixelData, color });
+            }
+            return newPixels.splice(0, 8);
+        });
+    };
+
+    const updateSelectedColor = (color: number) => {
+        setSelectedColor(color);
+        if (selectedPixel) {
+            addOrUpdatePixel(selectedPixel, color);
+        }
+    };
+
+    const updateSelectedPixel = (data: { x: number; y: number }) => {
+        setSelectedPixel(data);
+        addOrUpdatePixel(data, selectedColor);
+    };
+
+    const clearSelectedPixels = () => {
+        setPixelsToDraw([]);
+        setSelectedPixel(null);
+    };
+
     return (
         <>
             <div className="absolute top-0 left-0 p-8 z-20">
@@ -342,9 +398,9 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
                     canvasData={canvasData}
                     selectedColor={selectedColor}
                     selectedPixel={selectedPixel}
-                    setSelectedPixel={setSelectedPixel}
+                    setSelectedPixel={updateSelectedPixel}
+                    pixelsToDraw={pixelsToDraw}
                 />
-
                 <div className="absolute justify-center items-center flex-col top-0 bottom-0 right-0 p-8 hidden md:flex">
                     <button
                         className={classNames(
@@ -381,7 +437,7 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
                                         borderWidth: selectedColor === i ? 1 : 0,
                                         borderColor: i === 255 ? 'white' : 'black',
                                     }}
-                                    onClick={() => setSelectedColor(i)}
+                                    onClick={() => updateSelectedColor(i)}
                                 />
                             ))}
                         </div>
@@ -399,7 +455,7 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
                                                 borderWidth: selectedColor === color ? 1 : 0,
                                                 borderColor: color === 255 ? 'white' : 'black',
                                             }}
-                                            onClick={() => setSelectedColor(color)}
+                                            onClick={() => updateSelectedColor(color)}
                                         />
                                     ))}
                                 </div>
@@ -417,6 +473,18 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
                             <span className="text-sm opacity-60">
                                 {cost} johns = {formatJohnsToOra(cost)} ORA
                             </span>
+                            {pixelsToDraw.length > 0 && (
+                                <>
+                                    <div className="flex space-x-2 items-center justify-center">
+                                        <span>Pixels to update: {pixelsToDraw.length}/8</span>
+                                        <button className="text-red-700 hover:opacity-80" onClick={clearSelectedPixels}>
+                                            <FaTrash />
+                                        </button>
+                                    </div>
+                                    <span>Total cost:</span> {cost * pixelsToDraw.length + pixelsToDraw.length - 1}{' '}
+                                    <span className="font-semibold opacity-80">johns</span>{' '}
+                                </>
+                            )}
                         </div>
                         {activeAccount?.address ? (
                             <div className="flex flex-col space-y-2 items-center justify-center">
@@ -426,7 +494,7 @@ function Canvas({ nodeUrl, nodePort }: CanvasProps) {
                                     }
                                     onClick={updatePixel}
                                 >
-                                    Draw pixel
+                                    Draw pixels
                                 </Button>
                             </div>
                         ) : (

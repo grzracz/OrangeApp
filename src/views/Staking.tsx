@@ -435,7 +435,8 @@ function Staking({ nodeUrl, nodePort, applicationId, assetId, isMainnet }: Staki
                     </div>
                     <div className="flex flex-col items-center justify-center">
                         <span className="font-bold heading text-2xl">
-                            {formatAmount(assetData?.lastEffort || 0)} ALGO
+                            {formatAmount((assetData?.lastEffort || 0) / ((assetData?.minerReward || 1) / 10 ** 8))}{' '}
+                            ALGO
                         </span>
                         <span className="text-sm opacity-80">Recent effort per ORA</span>
                     </div>

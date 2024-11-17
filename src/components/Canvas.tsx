@@ -8,7 +8,8 @@ type CanvasProps = {
     canvasData: { [key: string]: number[] };
     selectedColor: number;
     selectedPixel: { x: number; y: number } | null;
-    setSelectedPixel: React.Dispatch<React.SetStateAction<{ x: number; y: number } | null>>;
+    setSelectedPixel: (data: { x: number; y: number }) => void;
+    pixelsToDraw: { x: number; y: number; color: number }[];
 };
 
 type Point = {
@@ -116,7 +117,7 @@ export default function Canvas(props: CanvasProps) {
                 }
             }
         },
-        [context, scale, viewportTopLeft, props.canvasWidth, props.canvasHeight],
+        [context, scale, viewportTopLeft, props.canvasWidth, props.canvasHeight, props.selectedColor],
     );
 
     const startPan = useCallback(
@@ -190,10 +191,22 @@ export default function Canvas(props: CanvasProps) {
                 drawQuadrant(context, i, j, squareSize, xStart, yStart, quadrantWidth);
             }
         }
+        if (props.pixelsToDraw && props.pixelsToDraw.length > 0) {
+            for (const pixel of props.pixelsToDraw) {
+                const { x, y, color } = pixel;
+                context.fillStyle = getColor(color);
+                context.fillRect(xStart + x * squareSize, yStart + y * squareSize, squareSize, squareSize);
+                context.strokeStyle = 'rgb(255, 255, 255, 0.5)';
+                context.lineWidth = 0.8;
+                context.strokeRect(xStart + x * squareSize, yStart + y * squareSize, squareSize, squareSize);
+            }
+        }
         if (props.selectedPixel) {
             const { x, y } = props.selectedPixel;
-            context.fillStyle = getColor(props.selectedColor);
-            context.fillRect(xStart + x * squareSize, yStart + y * squareSize, squareSize, squareSize);
+            if (props.pixelsToDraw.length < 8) {
+                context.fillStyle = getColor(props.selectedColor);
+                context.fillRect(xStart + x * squareSize, yStart + y * squareSize, squareSize, squareSize);
+            }
             context.strokeStyle = 'rgb(0, 0, 0)';
             context.setLineDash([0.33, 0.33]);
             context.lineWidth = 0.5;
@@ -220,6 +233,7 @@ export default function Canvas(props: CanvasProps) {
         props.canvasData,
         props.selectedPixel,
         props.selectedColor,
+        props.pixelsToDraw,
     ]);
 
     useEffect(() => {
